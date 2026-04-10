@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cornell Notes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600&family=Homemade+Apple&family=Rock+Salt&family=Reenie+Beanie&family=Covered+By+Your+Grace&family=Patrick+Hand&family=Caveat:wght@400;500;600&family=Indie+Flower&family=Architects+Daughter&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="parallax-bg"></div>
+    
+    <nav class="top-nav">
+        <div class="nav-brand">Cornell Notes</div>
+        <div class="step-indicators hidden">
+            <div class="step-dot active" data-step="1"><span>1</span></div>
+            <div class="step-line"></div>
+            <div class="step-dot" data-step="2"><span>2</span></div>
+            <div class="step-line"></div>
+            <div class="step-dot" data-step="3"><span>3</span></div>
+        </div>
+    </nav>
+
+    <main class="app-container">
+        <section id="heroSection" class="hero-fullscreen active">
+            <div class="hero-content">
+                <h1 class="hero-title">Notes that look<br>like <em>yours</em></h1>
+                <p class="hero-subtitle">Choose a handwriting style or trace your own letters.</p>
+                
+                <div class="style-selector">
+                    <div class="style-option" data-style="messy">
+                        <div class="style-preview messy-preview">Messy</div>
+                        <span>Really Messy</span>
+                    </div>
+                    <div class="style-option" data-style="casual">
+                        <div class="style-preview casual-preview">Casual</div>
+                        <span>Casual</span>
+                    </div>
+                    <div class="style-option selected" data-style="neat">
+                        <div class="style-preview neat-preview">Neat</div>
+                        <span>Neat</span>
+                    </div>
+                    <div class="style-option" data-style="perfect">
+                        <div class="style-preview perfect-preview">Perfect</div>
+                        <span>Super Neat</span>
+                    </div>
+                    <div class="style-option" data-style="cursive">
+                        <div class="style-preview cursive-preview">Cursive</div>
+                        <span>Cursive</span>
+                    </div>
+                    <div class="style-option" data-style="custom">
+                        <div class="style-preview custom-preview">+</div>
+                        <span>Custom</span>
+                    </div>
+                </div>
+                
+                <button id="getStartedBtn" class="btn-primary btn-large">Continue</button>
+            </div>
+        </section>
+
+        <section id="trainingSection" class="card">
+            <div class="card-header">
+                <span class="step-badge">Custom Handwriting</span>
+                <h1>Trace your letters</h1>
+                <p>Click any letter to trace it. You need at least 10 characters to continue.</p>
+            </div>
+            
+            <div class="progress-wrapper">
+                <div class="progress-info">
+                    <span id="progressText">0 of 62</span>
+                    <span class="progress-label">characters</span>
+                </div>
+                <div class="progress-track">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div id="letterGrid" class="letter-grid"></div>
+            
+            <div class="card-actions">
+                <button id="backToStyleBtn" class="btn-secondary">Back</button>
+                <button id="continueBtn" class="btn-primary" disabled>Continue</button>
+            </div>
+        </section>
+
+        <section id="inputSection" class="card">
+            <div class="card-header">
+                <span class="step-badge">Add Content</span>
+                <h1>Paste your content</h1>
+                <p>Choose a note type and add your text.</p>
+            </div>
+            
+            <div class="note-type-selector">
+                <span class="selector-label">Note Type</span>
+                <div class="note-type-options">
+                    <button class="note-type-btn selected" data-type="cornell">
+                        <span class="note-icon">📝</span>
+                        <span>Cornell</span>
+                    </button>
+                    <button class="note-type-btn" data-type="vocab">
+                        <span class="note-icon">📖</span>
+                        <span>Vocabulary</span>
+                    </button>
+                    <button class="note-type-btn" data-type="timeline">
+                        <span class="note-icon">📅</span>
+                        <span>Timeline</span>
+                    </button>
+                    <button class="note-type-btn" data-type="character">
+                        <span class="note-icon">👤</span>
+                        <span>Character</span>
+                    </button>
+                    <button class="note-type-btn" data-type="all">
+                        <span class="note-icon">📋</span>
+                        <span>All</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="input-wrapper">
+                <textarea id="contentInput" placeholder="Paste text from a textbook, article, or lecture notes..."></textarea>
+            </div>
+            
+            <div class="paper-selector">
+                <span class="selector-label">Paper Style</span>
+                <div class="paper-options">
+                    <button class="paper-btn selected" data-paper="lined">
+                        <div class="paper-thumb lined"></div>
+                        <span>Lined</span>
+                    </button>
+                    <button class="paper-btn" data-paper="college">
+                        <div class="paper-thumb college"></div>
+                        <span>College</span>
+                    </button>
+                    <button class="paper-btn" data-paper="wide">
+                        <div class="paper-thumb wide"></div>
+                        <span>Wide</span>
+                    </button>
+                    <button class="paper-btn" data-paper="plain">
+                        <div class="paper-thumb plain"></div>
+                        <span>Plain</span>
+                    </button>
+                    <button class="paper-btn" data-paper="yellow">
+                        <div class="paper-thumb yellow"></div>
+                        <span>Legal</span>
+                    </button>
+                    <button class="paper-btn" data-paper="graph">
+                        <div class="paper-thumb graph"></div>
+                        <span>Graph</span>
+                    </button>
+                    <button class="paper-btn" data-paper="dotted">
+                        <div class="paper-thumb dotted"></div>
+                        <span>Dotted</span>
+                    </button>
+                    <button class="paper-btn" data-paper="kraft">
+                        <div class="paper-thumb kraft"></div>
+                        <span>Kraft</span>
+                    </button>
+                    <button class="paper-btn" data-paper="dark">
+                        <div class="paper-thumb dark"></div>
+                        <span>Dark</span>
+                    </button>
+                    <button class="paper-btn" data-paper="aged">
+                        <div class="paper-thumb aged"></div>
+                        <span>Aged</span>
+                    </button>
+                    <button class="paper-btn" data-paper="engineering">
+                        <div class="paper-thumb engineering"></div>
+                        <span>Engineer</span>
+                    </button>
+                    <button class="paper-btn" data-paper="steno">
+                        <div class="paper-thumb steno"></div>
+                        <span>Steno</span>
+                    </button>
+                    <button class="paper-btn" data-paper="custom" id="customPaperBtn">
+                        <div class="paper-thumb custom-thumb">✨</div>
+                        <span>Custom</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="customPaperBuilder" class="custom-builder hidden">
+                <span class="selector-label">Build Your Paper</span>
+                <div class="builder-grid">
+                    <div class="builder-item">
+                        <label>Background</label>
+                        <input type="color" id="cpBg" value="#fefefe" class="builder-color">
+                    </div>
+                    <div class="builder-item">
+                        <label>Line Pattern</label>
+                        <select id="cpPattern" class="builder-select">
+                            <option value="lined">Lined</option>
+                            <option value="graph">Graph</option>
+                            <option value="dotted">Dotted</option>
+                            <option value="plain">None</option>
+                        </select>
+                    </div>
+                    <div class="builder-item">
+                        <label>Line Color</label>
+                        <input type="color" id="cpLineColor" value="#a8d4ff" class="builder-color">
+                    </div>
+                    <div class="builder-item">
+                        <label>Line Spacing</label>
+                        <input type="range" id="cpLineSpacing" min="12" max="50" value="26" class="builder-range">
+                    </div>
+                    <div class="builder-item">
+                        <label>Margin Line</label>
+                        <div class="builder-toggle-row">
+                            <input type="checkbox" id="cpMargin" checked class="builder-check">
+                            <input type="color" id="cpMarginColor" value="#ffb8b8" class="builder-color">
+                        </div>
+                    </div>
+                    <div class="builder-item">
+                        <label>Divider Color</label>
+                        <input type="color" id="cpDivider" value="#333333" class="builder-color">
+                    </div>
+                    <div class="builder-item">
+                        <label>Ink Color</label>
+                        <input type="color" id="cpInk" value="#1a1a2e" class="builder-color">
+                    </div>
+                    <div class="builder-item">
+                        <label>Label Color</label>
+                        <input type="color" id="cpLabel" value="#888888" class="builder-color">
+                    </div>
+                    <div class="builder-item">
+                        <label>Grid Size</label>
+                        <input type="range" id="cpGridSize" min="10" max="40" value="20" class="builder-range">
+                    </div>
+                    <div class="builder-item">
+                        <label>Dot Size</label>
+                        <input type="range" id="cpDotSize" min="1" max="5" value="2" class="builder-range" step="0.5">
+                    </div>
+                    <div class="builder-item">
+                        <label>Line Thickness</label>
+                        <input type="range" id="cpLineWidth" min="0.5" max="3" value="1" class="builder-range" step="0.5">
+                    </div>
+                    <div class="builder-item">
+                        <label>Paper Texture</label>
+                        <select id="cpTexture" class="builder-select">
+                            <option value="none">Clean</option>
+                            <option value="grain">Grain</option>
+                            <option value="aged">Aged/Stained</option>
+                            <option value="canvas">Canvas</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="paper-customize">
+                <span class="selector-label">Customize</span>
+                <div class="customize-row">
+                    <label>Line Spacing</label>
+                    <input type="range" id="lineSpacingSlider" min="18" max="40" value="26">
+                </div>
+                <div class="customize-row">
+                    <label>Margin Width</label>
+                    <input type="range" id="marginSlider" min="0" max="100" value="75">
+                </div>
+                <div class="customize-row">
+                    <label>Paper Tint</label>
+                    <div class="tint-options">
+                        <button class="tint-btn tint-white selected" data-tint="white" title="White"></button>
+                        <button class="tint-btn tint-cream" data-tint="cream" title="Cream"></button>
+                        <button class="tint-btn tint-blue" data-tint="blue" title="Blue"></button>
+                        <button class="tint-btn tint-green" data-tint="green" title="Green"></button>
+                        <button class="tint-btn tint-pink" data-tint="pink" title="Pink"></button>
+                        <button class="tint-btn tint-lavender" data-tint="lavender" title="Lavender"></button>
+                        <button class="tint-btn tint-peach" data-tint="peach" title="Peach"></button>
+                        <button class="tint-btn tint-mint" data-tint="mint" title="Mint"></button>
+                        <button class="tint-btn tint-sky" data-tint="sky" title="Sky"></button>
+                        <button class="tint-btn tint-lemon" data-tint="lemon" title="Lemon"></button>
+                        <button class="tint-btn tint-rose" data-tint="rose" title="Rose"></button>
+                        <button class="tint-btn tint-gray" data-tint="gray" title="Gray"></button>
+                        <div class="tint-custom-wrap">
+                            <input type="color" id="customTintPicker" class="tint-color-input" value="#fefefe" title="Custom Color">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-actions">
+                <button id="backToTrainingBtn" class="btn-secondary">Back</button>
+                <button id="generateBtn" class="btn-primary">Generate Notes</button>
+            </div>
+            
+            <div id="loading" class="loading-state hidden">
+                <div class="spinner"></div>
+                <span>Creating your notes...</span>
+            </div>
+        </section>
+
+        <section id="notesSection" class="card card-wide">
+            <div class="output-toolbar">
+                <button id="restartBtn" class="btn-icon" title="Start Over">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                </button>
+                <button id="printBtn" class="btn-icon" title="Print">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                </button>
+            </div>
+            
+            <div id="cornellPaper" class="cornell-paper">
+                <canvas id="paperCanvas"></canvas>
+                <div id="notesOverlay" class="notes-overlay">
+                    <div class="header-row">
+                        <div class="header-field">
+                            <label>Name</label>
+                            <div id="nameArea" class="hw-field"></div>
+                        </div>
+                        <div class="header-field">
+                            <label>Date</label>
+                            <div id="dateArea" class="hw-field"></div>
+                        </div>
+                    </div>
+                    <div class="header-field header-topic">
+                        <label>Topic</label>
+                        <div id="topicArea" class="hw-field"></div>
+                    </div>
+                    
+                    <div class="cornell-layout">
+                        <div class="col-main-ideas">
+                            <div class="col-label" id="leftColLabel">Main Ideas</div>
+                            <div id="mainIdeasContent"></div>
+                        </div>
+                        <div class="col-notes">
+                            <div class="col-label" id="rightColLabel">Notes</div>
+                            <div id="notesContent"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="summary-section">
+                        <div class="col-label" id="summaryLabel">Summary</div>
+                        <div id="summaryContent"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="traceModal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h2>Trace <span id="currentLetter">A</span></h2>
+                <button id="closeModalBtn" class="modal-close">&times;</button>
+            </div>
+            <div class="trace-container">
+                <canvas id="guideCanvas"></canvas>
+                <canvas id="traceCanvas"></canvas>
+            </div>
+            <div class="thickness-slider">
+                <label>Thickness</label>
+                <input type="range" id="thicknessSlider" min="1" max="12" value="4" step="0.5">
+                <span id="thicknessValue">4</span>
+            </div>
+            <div class="modal-actions">
+                <button id="clearLetterBtn" class="btn-secondary">Clear</button>
+                <button id="saveLetterBtn" class="btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

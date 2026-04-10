@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw Your Alphabet</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, sans-serif;
+            background: #f5f5f5;
+            padding: 30px;
+        }
+        h1 { text-align: center; margin-bottom: 5px; }
+        p { text-align: center; color: #666; margin-bottom: 25px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            max-width: 1200px;
+            margin: 0 auto 30px;
+        }
+        .letter-box {
+            background: white;
+            border-radius: 8px;
+            padding: 5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .letter-label {
+            text-align: center;
+            font-size: 11px;
+            color: #999;
+            margin-bottom: 3px;
+        }
+        canvas {
+            display: block;
+            width: 130px;
+            height: 130px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: crosshair;
+            margin: 0 auto;
+        }
+        canvas.drawn {
+            border-color: #4CAF50;
+        }
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 0 8px;
+        }
+        .clear-all { background: #eee; color: #333; }
+        .clear-all:hover { background: #ddd; }
+        .export { background: #1a1a1a; color: white; }
+        .export:hover { background: #333; }
+        .progress {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .section-label {
+            grid-column: 1 / -1;
+            font-weight: 600;
+            color: #333;
+            padding: 15px 0 5px;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 5px;
+        }
+        .pen-size {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .pen-size label { color: #666; }
+        .undo-btn {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: none;
+            background: #eee;
+            color: #666;
+            font-size: 10px;
+            cursor: pointer;
+            opacity: 0;
+            transition: 0.2s;
+        }
+        .letter-box:hover .undo-btn { opacity: 1; }
+        .undo-btn:hover { background: #ddd; }
+        .letter-box { position: relative; }
+        .keyboard-hint {
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 15px;
+        }
+        kbd {
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Draw Your Alphabet</h1>
+    <p>Draw each letter how you naturally write. Click "Save to App" when done - this becomes your "Really Messy" preset!</p>
+    
+    <div class="pen-size">
+        <label>Pen size:</label>
+        <input type="range" id="penSize" min="1" max="8" value="2">
+        <span id="sizeVal">2</span>
+    </div>
+    
+    <div class="keyboard-hint">
+        <kbd>Ctrl+Z</kbd> to undo last stroke &nbsp;|&nbsp; Double-click to clear a letter
+    </div>
+    
+    <div class="progress" id="progress">0 / 62 letters drawn</div>
+    
+    <div class="controls">
+        <button class="clear-all" onclick="clearAll()">Clear All</button>
+        <button class="export" onclick="exportAlphabet()">Save to App</button>
+    </div>
+    
+    <div class="grid" id="grid"></div>
+
+    <script>
+        const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const canvases = {};
+        const history = {}; // Store stroke history per canvas
+        let penSize = 2;
+        let currentCanvas = null;
+        let drawing = false;
+        let lastX = 0, lastY = 0;
+        let currentStroke = [];
+        let lastEditedCanvas = null;
+
+        document.getElementById('penSize').addEventListener('input', e => {
+            penSize = parseInt(e.target.value);
+            document.getElementById('sizeVal').textContent = penSize;
+        });
+
+        // Global undo with Ctrl+Z
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                if (lastEditedCanvas) {
+                    undoStroke(lastEditedCanvas.dataset.char);
+                }
+            }
+        });
+
+        function createGrid() {
+            const grid = document.getElementById('grid');
+            
+            // Uppercase
+            const upperLabel = document.createElement('div');
+            upperLabel.className = 'section-label';
+            upperLabel.textContent = 'Uppercase';
+            grid.appendChild(upperLabel);
+            
+            for (let i = 0; i < 26; i++) {
+                createLetterBox(CHARS[i]);
+            }
+            
+            // Lowercase
+            const lowerLabel = document.createElement('div');
+            lowerLabel.className = 'section-label';
+            lowerLabel.textContent = 'Lowercase';
+            grid.appendChild(lowerLabel);
+            
+            for (let i = 26; i < 52; i++) {
+                createLetterBox(CHARS[i]);
+            }
+            
+            // Numbers
+            const numLabel = document.createElement('div');
+            numLabel.className = 'section-label';
+            numLabel.textContent = 'Numbers';
+            grid.appendChild(numLabel);
+            
+            for (let i = 52; i < 62; i++) {
+                createLetterBox(CHARS[i]);
+            }
+        }
+
+        function createLetterBox(char) {
+            const box = document.createElement('div');
+            box.className = 'letter-box';
+            
+            // Initialize history for this char
+            history[char] = [];
+            
+            const label = document.createElement('div');
+            label.className = 'letter-label';
+            label.textContent = char;
+            
+            // Undo button
+            const undoBtn = document.createElement('button');
+            undoBtn.className = 'undo-btn';
+            undoBtn.textContent = '↩';
+            undoBtn.title = 'Undo (Ctrl+Z)';
+            undoBtn.onclick = (e) => {
+                e.stopPropagation();
+                undoStroke(char);
+            };
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 260;
+            canvas.height = 260;
+            canvas.dataset.char = char;
+            
+            clearCanvas(canvas, char);
+            
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', endDraw);
+            canvas.addEventListener('mouseout', endDraw);
+            canvas.addEventListener('touchstart', handleTouchStart);
+            canvas.addEventListener('touchmove', handleTouchMove);
+            canvas.addEventListener('touchend', endDraw);
+            
+            // Double click to clear
+            canvas.addEventListener('dblclick', () => {
+                history[char] = [];
+                clearCanvas(canvas, char);
+                canvas.classList.remove('drawn');
+                updateProgress();
+            });
+            
+            box.appendChild(label);
+            box.appendChild(undoBtn);
+            box.appendChild(canvas);
+            document.getElementById('grid').appendChild(box);
+            canvases[char] = canvas;
+        }
+
+        function clearCanvas(canvas, char) {
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, 260, 260);
+            ctx.font = '150px Georgia';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillText(char, 130, 140);
+        }
+
+        function redrawCanvas(char) {
+            const canvas = canvases[char];
+            clearCanvas(canvas, char);
+            const ctx = canvas.getContext('2d');
+            
+            // Redraw all strokes
+            history[char].forEach(stroke => {
+                if (stroke.points.length < 2) return;
+                ctx.beginPath();
+                ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+                for (let i = 1; i < stroke.points.length; i++) {
+                    ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+                }
+                ctx.strokeStyle = '#1a1a2e';
+                ctx.lineWidth = stroke.size * 2;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.stroke();
+            });
+            
+            if (history[char].length > 0) {
+                canvas.classList.add('drawn');
+            } else {
+                canvas.classList.remove('drawn');
+            }
+            updateProgress();
+        }
+
+        function undoStroke(char) {
+            if (history[char] && history[char].length > 0) {
+                history[char].pop();
+                redrawCanvas(char);
+            }
+        }
+
+        function startDraw(e) {
+            drawing = true;
+            currentCanvas = e.target;
+            lastEditedCanvas = currentCanvas;
+            currentStroke = { points: [], size: penSize };
+            const rect = currentCanvas.getBoundingClientRect();
+            const scaleX = currentCanvas.width / rect.width;
+            const scaleY = currentCanvas.height / rect.height;
+            lastX = (e.clientX - rect.left) * scaleX;
+            lastY = (e.clientY - rect.top) * scaleY;
+            currentStroke.points.push({ x: lastX, y: lastY });
+        }
+
+        function draw(e) {
+            if (!drawing || !currentCanvas) return;
+            const rect = currentCanvas.getBoundingClientRect();
+            const scaleX = currentCanvas.width / rect.width;
+            const scaleY = currentCanvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            currentStroke.points.push({ x, y });
+            
+            const ctx = currentCanvas.getContext('2d');
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = '#1a1a2e';
+            ctx.lineWidth = penSize * 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            
+            lastX = x;
+            lastY = y;
+            currentCanvas.classList.add('drawn');
+        }
+
+        function endDraw() {
+            if (drawing && currentCanvas && currentStroke.points.length > 1) {
+                const char = currentCanvas.dataset.char;
+                history[char].push(currentStroke);
+            }
+            drawing = false;
+            currentCanvas = null;
+            currentStroke = [];
+            updateProgress();
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            drawing = true;
+            currentCanvas = e.target;
+            lastEditedCanvas = currentCanvas;
+            currentStroke = { points: [], size: penSize };
+            const rect = currentCanvas.getBoundingClientRect();
+            const scaleX = currentCanvas.width / rect.width;
+            const scaleY = currentCanvas.height / rect.height;
+            lastX = (touch.clientX - rect.left) * scaleX;
+            lastY = (touch.clientY - rect.top) * scaleY;
+            currentStroke.points.push({ x: lastX, y: lastY });
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (!drawing || !currentCanvas) return;
+            const touch = e.touches[0];
+            const rect = currentCanvas.getBoundingClientRect();
+            const scaleX = currentCanvas.width / rect.width;
+            const scaleY = currentCanvas.height / rect.height;
+            const x = (touch.clientX - rect.left) * scaleX;
+            const y = (touch.clientY - rect.top) * scaleY;
+            
+            currentStroke.points.push({ x, y });
+            
+            const ctx = currentCanvas.getContext('2d');
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = '#1a1a2e';
+            ctx.lineWidth = penSize * 2;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            
+            lastX = x;
+            lastY = y;
+            currentCanvas.classList.add('drawn');
+        }
+
+        function updateProgress() {
+            const drawn = document.querySelectorAll('canvas.drawn').length;
+            document.getElementById('progress').textContent = `${drawn} / 62 letters drawn`;
+        }
+
+        function clearAll() {
+            Object.entries(canvases).forEach(([char, canvas]) => {
+                history[char] = [];
+                clearCanvas(canvas, char);
+                canvas.classList.remove('drawn');
+            });
+            updateProgress();
+        }
+
+        function exportAlphabet() {
+            const data = {};
+            Object.entries(canvases).forEach(([char, canvas]) => {
+                if (canvas.classList.contains('drawn')) {
+                    data[char] = canvas.toDataURL();
+                }
+            });
+            
+            // Save to localStorage so main app can use it
+            localStorage.setItem('myHandwriting', JSON.stringify(data));
+            
+            const count = Object.keys(data).length;
+            alert(`Saved ${count} letters! Go back to the main app and select "Really Messy" - it will use YOUR handwriting now.`);
+        }
+
+        // Load existing saved letters on page load
+        function loadSaved() {
+            const saved = localStorage.getItem('myHandwriting');
+            if (saved) {
+                const data = JSON.parse(saved);
+                Object.entries(data).forEach(([char, dataUrl]) => {
+                    const canvas = canvases[char];
+                    if (canvas) {
+                        const img = new Image();
+                        img.onload = () => {
+                            const ctx = canvas.getContext('2d');
+                            ctx.fillStyle = 'white';
+                            ctx.fillRect(0, 0, 260, 260);
+                            ctx.drawImage(img, 0, 0);
+                            canvas.classList.add('drawn');
+                            updateProgress();
+                        };
+                        img.src = dataUrl;
+                    }
+                });
+            }
+        }
+
+        createGrid();
+        setTimeout(loadSaved, 100);
+    </script>
+</body>
+</html>

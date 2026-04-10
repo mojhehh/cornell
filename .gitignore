@@ -1,0 +1,15 @@
+# Dev/test artifacts
+test-*.js
+draw-sample.html
+.wrangler/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+*.swp
+*.swo
