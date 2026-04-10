@@ -1,4 +1,3 @@
-// Cloudflare Worker for Cornell Notes AI
 const CEREBRAS_API_KEY = 'csk-wnhhkvm58e8f3yhppm6xjf8dkdmy2nvxxj8dn5yrc95wec8t';
 
 const PROMPTS = {
@@ -101,7 +100,6 @@ export default {
 
             const parsed = JSON.parse(match[0]);
 
-            // Validate shape
             if (!Array.isArray(parsed.mainIdeas) || !Array.isArray(parsed.notes)) {
                 return new Response(JSON.stringify({ error: 'Malformed notes structure' }), {
                     status: 502,

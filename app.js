@@ -187,7 +187,6 @@ function setupEventListeners() {
     document.getElementById('backToStyleBtn').addEventListener('click', backToHero);
     document.querySelector('.modal-backdrop').addEventListener('click', closeTraceModal);
 
-    // Style selector
     document.querySelectorAll('.style-option').forEach(opt => {
         opt.addEventListener('click', () => {
             document.querySelectorAll('.style-option').forEach(o => o.classList.remove('selected'));
@@ -196,7 +195,6 @@ function setupEventListeners() {
         });
     });
 
-    // Paper selector
     document.querySelectorAll('.paper-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.paper-btn').forEach(b => b.classList.remove('selected'));
@@ -207,7 +205,6 @@ function setupEventListeners() {
         });
     });
 
-    // Custom paper builder
     const cpFields = {
         cpBg: 'bg', cpLineColor: 'lineColor', cpMarginColor: 'marginColor',
         cpDivider: 'dividerColor', cpInk: 'inkColor', cpLabel: 'labelColor'
@@ -231,13 +228,11 @@ function setupEventListeners() {
     const cpMargin = document.getElementById('cpMargin');
     if (cpMargin) cpMargin.addEventListener('change', () => { customPaper.margin = cpMargin.checked; });
 
-    // Note type selector
     document.querySelectorAll('.note-type-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.note-type-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             selectedNoteType = btn.dataset.type;
-            // Update placeholder based on type
             const placeholders = {
                 cornell: 'Paste text from a textbook, article, or lecture notes...',
                 vocab: 'Paste text containing vocabulary words, definitions, or key terms...',
@@ -249,7 +244,6 @@ function setupEventListeners() {
         });
     });
 
-    // Paper customization
     const lineSpacingSlider = document.getElementById('lineSpacingSlider');
     if (lineSpacingSlider) {
         lineSpacingSlider.addEventListener('input', () => {
@@ -499,7 +493,6 @@ function goToInput() {
 async function generateNotes() {
     const content = document.getElementById('contentInput').value.trim();
     if (!content) return;
-    // Check for real content: must have at least 100 chars and contain actual sentences
     const words = content.split(/\s+/).filter(w => w.length > 3);
     if (content.length < 100 || words.length < 15) {
         alert('Please paste real study content — at least a full paragraph from a textbook, article, or lecture notes.');
@@ -566,7 +559,6 @@ function displayNotes(notes) {
     notesSection.classList.add('active');
     updateStepIndicators(3);
     
-    // Toggle dark paper class for label visibility
     const overlay = document.getElementById('notesOverlay');
     const isDarkPaper = selectedPaper === 'dark' || 
                         (selectedPaper === 'custom' && isColorDark(customPaper.bg));
@@ -577,7 +569,6 @@ function displayNotes(notes) {
         }
     }
     
-    // Always use Main Ideas / Notes labels
     document.getElementById('leftColLabel').textContent = 'Main Ideas';
     document.getElementById('rightColLabel').textContent = 'Notes';
     document.getElementById('summaryLabel').textContent = 'Summary';
@@ -621,7 +612,6 @@ function drawPaper() {
     canvas.height = Math.max(1300, rect.height);
     const ctx = canvas.getContext('2d');
     
-    // Paper background color based on tint and type
     const tintColors = {
         white: '#fefefe',
         cream: '#fffef5',
@@ -648,7 +638,6 @@ function drawPaper() {
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Texture overlays
     const texture = selectedPaper === 'custom' ? customPaper.texture : 
                     selectedPaper === 'aged' ? 'aged' : 'none';
     if (texture === 'aged') {
@@ -692,7 +681,6 @@ function drawPaper() {
                       selectedPaper === 'custom' ? customPaper.lineColor :
                       '#a8d4ff';
     
-    // Draw paper-specific patterns
     if (selectedPaper === 'custom') {
         const cp = customPaper;
         if (cp.pattern === 'graph') {
@@ -724,7 +712,6 @@ function drawPaper() {
                 ctx.stroke();
             }
         }
-        // Custom margin
         if (cp.margin) {
             ctx.strokeStyle = cp.marginColor;
             ctx.lineWidth = 1.5;
@@ -784,7 +771,6 @@ function drawPaper() {
             ctx.stroke();
         }
         
-        // Draw margin line for lined paper
         if (selectedPaper === 'lined' && paperMarginWidth > 0) {
             ctx.strokeStyle = '#ffb8b8';
             ctx.lineWidth = 1.5;
@@ -798,7 +784,6 @@ function drawPaper() {
             ctx.stroke();
         }
         
-        // Draw center line for steno paper
         if (selectedPaper === 'steno') {
             ctx.strokeStyle = '#8bc48b';
             ctx.lineWidth = 1.5;
@@ -812,7 +797,6 @@ function drawPaper() {
         }
     }
     
-    // Cornell note dividers
     const dividerColor = selectedPaper === 'custom' ? customPaper.dividerColor :
                          isDark ? 'rgba(255,255,255,0.3)' :
                          selectedPaper === 'kraft' ? '#8b6914' : '#333';
@@ -857,7 +841,6 @@ function writeTextToElement(element, text, maxWidth) {
     const lineHeight = 36;
     ctx.font = `${fontSize}px ${preset.font}`;
     
-    // Word wrap
     const words = text.split(' ');
     const lines = [];
     let line = '';
@@ -877,7 +860,6 @@ function writeTextToElement(element, text, maxWidth) {
     canvas.width = maxWidth;
     canvas.height = lines.length * lineHeight + 20;
     
-    // Draw text with handwriting style variations
     let y = lineHeight;
     lines.forEach(lineText => {
         let x = 8;
@@ -887,7 +869,6 @@ function writeTextToElement(element, text, maxWidth) {
                 continue;
             }
             
-            // Measure BEFORE save/restore so font is correct
             ctx.font = `${fontSize}px ${preset.font}`;
             const charWidth = ctx.measureText(char).width;
             
@@ -919,6 +900,5 @@ function restart() {
     heroSection.classList.add('active');
     document.getElementById('contentInput').value = '';
     updateStepIndicators(1);
-    // Clear trained letters when starting over
     Object.keys(trainedLetters).forEach(k => delete trainedLetters[k]);
 }
