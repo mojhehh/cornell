@@ -536,45 +536,9 @@ async function callAI(content) {
 
 function setupBookmarklet() {
     const code = `(function(){
-var skip=/^(SCRIPT|STYLE|NOSCRIPT|SVG|LINK|META|HEAD|NAV|FOOTER|HEADER|BUTTON|SELECT|OPTION)$/;
-var skipCl=/\\b(nav|menu|sidebar|footer|header|toolbar|cookie|banner|popup|modal|ad-|ads-|breadcrumb|crumb|title-bar|page-title|course-info|masthead|topbar|tab-bar)\\b/i;
-var skipRole=/^(navigation|banner|contentinfo|menu|menubar|toolbar|complementary|tablist|tab)$/;
-var S=[];
-function walk(n){
-if(!n)return;
-if(n.nodeType===3){var t=n.textContent;if(t&&/\\S/.test(t))S.push(t);return}
-if(n.nodeType!==1)return;
-if(skip.test(n.tagName))return;
-var r=n.getAttribute('role');
-if(r&&skipRole.test(r))return;
-var cl=(n.className&&typeof n.className==='string')?n.className:'';
-var id=n.id||'';
-if(skipCl.test(cl)||skipCl.test(id))return;
-var def=n.getAttribute('data-definition');
-if(def)S.push(' ('+def+') ');
-if(n.tagName==='INPUT'&&/^(text|search)$/.test(n.type)){var v=n.value;if(v&&v.length>10)S.push(v)}
-if(n.tagName==='TEXTAREA'){var v2=n.value;if(v2&&v2.length>10)S.push(v2)}
-if(n.shadowRoot)walk(n.shadowRoot);
-for(var i=0;i<n.childNodes.length;i++)walk(n.childNodes[i]);
-}
-var sels=['.ep-read','[data-mt]','article','[role=main]','main','#content','#main','.content'];
-var root=null;
-var best=0;
-for(var i=0;i<sels.length;i++){
-var els=document.querySelectorAll(sels[i]);
-for(var j=0;j<els.length;j++){
-var len=els[j].textContent.length;
-if(len>best){best=len;root=els[j]}
-}}
-if(!root||best<100)root=document.body;
-walk(root);
-try{document.querySelectorAll('iframe').forEach(function(f){
-try{walk(f.contentDocument.body)}catch(e){}});}catch(e){}
-var txt=S.join('');
-txt=txt.replace(/[ \\t]+/g,' ');
-txt=txt.replace(/(\\r?\\n\\s*){3,}/g,'\\n\\n');
-txt=txt.trim();
-if(!txt||txt.length<20){alert('No text found.');return}
+var txt=document.body.innerText;
+if(!txt||txt.length<10){alert('No text found.');return}
+txt=txt.replace(/\\n{3,}/g,'\\n\\n').trim();
 var w=txt.split(/\\s+/).length;
 navigator.clipboard.writeText(txt).then(function(){
 alert('Copied '+w+' words! Paste in Cornell Notes.');
