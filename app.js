@@ -538,10 +538,15 @@ function setupBookmarklet() {
     const code = `(function(){
 var chunks=[];
 chunks.push(document.body.innerText||'');
+var iframeSrcs=[];
 try{document.querySelectorAll('iframe').forEach(function(f){
-try{var t=f.contentDocument.body.innerText;if(t)chunks.push(t)}catch(e){}
+try{var t=f.contentDocument.body.innerText;if(t)chunks.push(t)}catch(e){
+if(f.src&&f.src.startsWith('http'))iframeSrcs.push(f.src);
+}
 try{f.contentDocument.querySelectorAll('iframe').forEach(function(f2){
-try{var t2=f2.contentDocument.body.innerText;if(t2)chunks.push(t2)}catch(e){}
+try{var t2=f2.contentDocument.body.innerText;if(t2)chunks.push(t2)}catch(e){
+if(f2.src&&f2.src.startsWith('http'))iframeSrcs.push(f2.src);
+}
 })}catch(e){}
 })}catch(e){}
 chunks.sort(function(a,b){return b.length-a.length});
@@ -550,8 +555,13 @@ if(chunks.length>1&&chunks[1].length>txt.length*0.3){
 txt=chunks.join('\\n\\n');
 }
 txt=txt.replace(/\\n{3,}/g,'\\n\\n').trim();
+var w=txt?txt.split(/\\s+/).length:0;
+if(w<50&&iframeSrcs.length>0){
+var opened=window.open(iframeSrcs[0],'_blank');
+alert('Content is locked in a cross-origin iframe. Opening it in a new tab — click the bookmarklet again there.');
+return;
+}
 if(!txt||txt.length<10){alert('No text found.');return}
-var w=txt.split(/\\s+/).length;
 navigator.clipboard.writeText(txt).then(function(){
 alert('Copied '+w+' words! Paste in Cornell Notes.');
 }).catch(function(){
