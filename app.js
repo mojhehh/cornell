@@ -536,32 +536,53 @@ async function callAI(content) {
 
 function setupBookmarklet() {
     const code = `(function(){
-var chunks=[];
-chunks.push(document.body.innerText||'');
-var iframeSrcs=[];
-try{document.querySelectorAll('iframe').forEach(function(f){
-try{var t=f.contentDocument.body.innerText;if(t)chunks.push(t)}catch(e){
-if(f.src&&f.src.startsWith('http'))iframeSrcs.push(f.src);
-}
-try{f.contentDocument.querySelectorAll('iframe').forEach(function(f2){
-try{var t2=f2.contentDocument.body.innerText;if(t2)chunks.push(t2)}catch(e){
-if(f2.src&&f2.src.startsWith('http'))iframeSrcs.push(f2.src);
-}
-})}catch(e){}
-})}catch(e){}
-chunks.sort(function(a,b){return b.length-a.length});
-var txt=chunks[0]||'';
-if(chunks.length>1&&chunks[1].length>txt.length*0.3){
-txt=chunks.join('\\n\\n');
-}
-txt=txt.replace(/\\n{3,}/g,'\\n\\n').trim();
-var w=txt?txt.split(/\\s+/).length:0;
-if(w<50&&iframeSrcs.length>0){
-var opened=window.open(iframeSrcs[0],'_blank');
-alert('Content is locked in a cross-origin iframe. Opening it in a new tab — click the bookmarklet again there.');
+var sel=window.getSelection();
+if(sel&&sel.toString().trim().length>30){
+var txt=sel.toString().trim();
+var w=txt.split(/\\s+/).length;
+navigator.clipboard.writeText(txt).then(function(){
+alert('Copied selection: '+w+' words!');
+}).catch(function(){prompt('Copy this:',txt)});
 return;
 }
-if(!txt||txt.length<10){alert('No text found.');return}
+var all=[];
+function grab(doc){
+try{
+var t=doc.body.innerText||'';
+if(t.trim())all.push(t.trim());
+doc.querySelectorAll('iframe').forEach(function(f){
+try{grab(f.contentDocument)}catch(e){}
+});
+}catch(e){}
+}
+grab(document);
+function getText(el){
+if(!el)return '';
+if(el.shadowRoot)return el.shadowRoot.innerText||getText(el.shadowRoot);
+return el.innerText||el.textContent||'';
+}
+document.querySelectorAll('*').forEach(function(el){
+if(el.shadowRoot){var t=getText(el.shadowRoot);if(t.length>100)all.push(t)}
+});
+var best='';
+document.querySelectorAll('[class*=read],[class*=content],[class*=chapter],[class*=lesson],[class*=textbook],[class*=article],[id*=read],[id*=content],article,main,[role=main]').forEach(function(el){
+var t=el.innerText||'';
+if(t.length>best.length)best=t;
+});
+if(best.length>200)all.unshift(best);
+all.sort(function(a,b){return b.length-a.length});
+var seen=new Set();
+var txt='';
+for(var i=0;i<all.length;i++){
+var c=all[i].trim();
+if(c.length>20&&!seen.has(c)){seen.add(c);if(!txt||c.length>txt.length)txt=c}
+}
+txt=(txt||'').replace(/\\n{3,}/g,'\\n\\n').trim();
+if(!txt||txt.length<10){
+alert('No text grabbed. Try selecting the text first, then click the bookmarklet.');
+return;
+}
+var w=txt.split(/\\s+/).length;
 navigator.clipboard.writeText(txt).then(function(){
 alert('Copied '+w+' words! Paste in Cornell Notes.');
 }).catch(function(){
