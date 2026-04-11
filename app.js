@@ -588,24 +588,47 @@ const GARBAGE_PATTERNS = [
     /403 forbidden/i,
     /log\s*in to continue/i,
     /sign\s*in to/i,
+    /signing in/i,
     /captcha/i,
     /checking your browser/i,
     /just a moment/i,
     /cloudflare/i,
     /attention required/i,
     /one more step/i,
-    /robot/i
+    /robot/i,
+    /verify you are human/i,
+    /DDoS protection/i,
+    /browser check/i,
+    /404 not found/i,
+    /page not found/i,
+    /unauthorized/i,
+    /session expired/i,
+    /refresh this page/i,
+    /okta/i,
+    /sso/i,
+    /single sign.on/i,
+    /authentication required/i,
+    /loading\.{3}/i,
+    /please wait/i,
+    /redirecting/i,
+    /incapsula/i,
+    /sucuri/i,
+    /blocked/i,
+    /try again later/i,
+    /too many requests/i,
+    /rate limit/i
 ];
 
 function isGarbageScrape(text) {
-    if (!text || text.length < 200) return true;
-    const lower = text.toLowerCase();
+    if (!text || text.length < 150) return true;
     const words = text.split(/\s+/).filter(w => w.length > 2);
-    if (words.length < 30) return true;
+    if (words.length < 20) return true;
     const hits = GARBAGE_PATTERNS.filter(p => p.test(text));
-    if (hits.length >= 2) return true;
+    if (hits.length >= 1) return true;
     const unique = new Set(words.map(w => w.toLowerCase()));
-    if (unique.size < 20) return true;
+    if (unique.size < 15) return true;
+    const ratio = unique.size / words.length;
+    if (ratio < 0.1 && words.length > 50) return true;
     return false;
 }
 
@@ -639,21 +662,32 @@ async function fetchUrl() {
             body: JSON.stringify({ url })
         });
         if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: 'Failed to fetch' }));
-            throw new Error(err.error || 'Failed to fetch URL');
-        }
-        const data = await res.json();
-        if (isGarbageScrape(data.text)) {
+            console.log('Scrape failed with status', res.status);
             showUploadStatus(
-                'That site requires login or JavaScript to load. Try uploading a PDF/file instead, or copy-paste the text manually.',
+                'Could not grab text from that site. Try the bookmarklet, upload a file, or paste text directly.',
                 true
             );
-        } else {
+            btn.disabled = false;
+            btn.textContent = 'Fetch';
+            return;
+        }
+        const data = await res.json();
+        if (data.text && !isGarbageScrape(data.text)) {
             document.getElementById('contentInput').value = data.text.slice(0, 15000);
             showUploadStatus('Scraped ' + data.text.split(/\s+/).length + ' words from URL', false);
+        } else {
+            console.log('First scrape was garbage, got:', (data.text || '').slice(0, 200));
+            showUploadStatus(
+                'That site needs JavaScript or login to load. Use the bookmarklet, upload a file, or paste text.',
+                true
+            );
         }
     } catch (err) {
-        showUploadStatus('Could not fetch that URL: ' + err.message, true);
+        console.log('Scrape error:', err.message);
+        showUploadStatus(
+            'Could not reach that URL. Try the bookmarklet, upload a file, or paste text directly.',
+            true
+        );
     }
     btn.disabled = false;
     btn.textContent = 'Fetch';

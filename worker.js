@@ -45,6 +45,45 @@ function stripHtml(html) {
     return text.trim();
 }
 
+const GARBAGE_WORDS = [
+    'javascript is disabled', 'enable javascript', 'please enable cookies',
+    'access denied', 'captcha', 'checking your browser', 'just a moment',
+    'cloudflare', 'attention required', 'one more step', 'verify you are human',
+    'signing in', 'sign in to', 'log in to continue', 'authentication required',
+    'okta', 'sso', 'single sign-on', 'session expired', 'refresh this page',
+    'please wait', 'redirecting', 'loading...', 'incapsula', 'robot',
+    '403 forbidden', '404 not found', 'page not found', 'unauthorized'
+];
+
+function looksLikeGarbage(text) {
+    if (!text || text.length < 150) return true;
+    const lower = text.toLowerCase();
+    const hits = GARBAGE_WORDS.filter(w => lower.includes(w));
+    if (hits.length >= 1) return true;
+    const words = text.split(/\s+/).filter(w => w.length > 2);
+    if (words.length < 20) return true;
+    return false;
+}
+
+async function scrapeWithRetry(targetUrl) {
+    const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+    };
+    const res1 = await fetch(targetUrl, { headers, redirect: 'follow' });
+    if (!res1.ok) return { ok: false, status: res1.status };
+    const html1 = await res1.text();
+    const text1 = stripHtml(html1);
+    if (!looksLikeGarbage(text1)) return { ok: true, text: text1.slice(0, 30000) };
+    await new Promise(r => setTimeout(r, 2000));
+    const res2 = await fetch(targetUrl, { headers, redirect: 'follow' });
+    if (!res2.ok) return { ok: false, status: res2.status };
+    const html2 = await res2.text();
+    const text2 = stripHtml(html2);
+    return { ok: true, text: text2.slice(0, 30000) };
+}
+
 export default {
     async fetch(request) {
         if (request.method === 'OPTIONS') {
@@ -76,19 +115,14 @@ export default {
                         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
                     });
                 }
-                const res = await fetch(targetUrl, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CornellNotesBot/1.0)' },
-                    redirect: 'follow'
-                });
-                if (!res.ok) {
-                    return new Response(JSON.stringify({ error: `Failed to fetch: ${res.status}` }), {
+                const result = await scrapeWithRetry(targetUrl);
+                if (!result.ok) {
+                    return new Response(JSON.stringify({ error: `Failed to fetch: ${result.status}` }), {
                         status: 502,
                         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
                     });
                 }
-                const html = await res.text();
-                const text = stripHtml(html).slice(0, 30000);
-                return new Response(JSON.stringify({ text }), {
+                return new Response(JSON.stringify({ text: result.text }), {
                     headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
                 });
             } catch (err) {
