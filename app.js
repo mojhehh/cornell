@@ -536,9 +536,21 @@ async function callAI(content) {
 
 function setupBookmarklet() {
     const code = `(function(){
-var txt=document.body.innerText;
-if(!txt||txt.length<10){alert('No text found.');return}
+var chunks=[];
+chunks.push(document.body.innerText||'');
+try{document.querySelectorAll('iframe').forEach(function(f){
+try{var t=f.contentDocument.body.innerText;if(t)chunks.push(t)}catch(e){}
+try{f.contentDocument.querySelectorAll('iframe').forEach(function(f2){
+try{var t2=f2.contentDocument.body.innerText;if(t2)chunks.push(t2)}catch(e){}
+})}catch(e){}
+})}catch(e){}
+chunks.sort(function(a,b){return b.length-a.length});
+var txt=chunks[0]||'';
+if(chunks.length>1&&chunks[1].length>txt.length*0.3){
+txt=chunks.join('\\n\\n');
+}
 txt=txt.replace(/\\n{3,}/g,'\\n\\n').trim();
+if(!txt||txt.length<10){alert('No text found.');return}
 var w=txt.split(/\\s+/).length;
 navigator.clipboard.writeText(txt).then(function(){
 alert('Copied '+w+' words! Paste in Cornell Notes.');
