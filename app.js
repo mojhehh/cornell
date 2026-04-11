@@ -188,6 +188,7 @@ function setupEventListeners() {
     document.querySelector('.modal-backdrop').addEventListener('click', closeTraceModal);
 
     document.getElementById('fetchUrlBtn').addEventListener('click', fetchUrl);
+    document.getElementById('fileUpload').addEventListener('change', handleFileUpload);
 
     document.querySelectorAll('.style-option').forEach(opt => {
         opt.addEventListener('click', () => {
@@ -532,17 +533,58 @@ async function callAI(content) {
     return data;
 }
 
+const GARBAGE_PATTERNS = [
+    /javascript is disabled/i,
+    /enable javascript/i,
+    /please enable cookies/i,
+    /access denied/i,
+    /403 forbidden/i,
+    /log\s*in to continue/i,
+    /sign\s*in to/i,
+    /captcha/i,
+    /checking your browser/i,
+    /just a moment/i,
+    /cloudflare/i,
+    /attention required/i,
+    /one more step/i,
+    /robot/i
+];
+
+function isGarbageScrape(text) {
+    if (!text || text.length < 200) return true;
+    const lower = text.toLowerCase();
+    const words = text.split(/\s+/).filter(w => w.length > 2);
+    if (words.length < 30) return true;
+    const hits = GARBAGE_PATTERNS.filter(p => p.test(text));
+    if (hits.length >= 2) return true;
+    const unique = new Set(words.map(w => w.toLowerCase()));
+    if (unique.size < 20) return true;
+    return false;
+}
+
+function showUploadStatus(msg, isError) {
+    const el = document.getElementById('uploadStatus');
+    el.textContent = msg;
+    el.classList.remove('hidden', 'error');
+    if (isError) el.classList.add('error');
+}
+
+function hideUploadStatus() {
+    document.getElementById('uploadStatus').classList.add('hidden');
+}
+
 async function fetchUrl() {
     const urlInput = document.getElementById('urlInput');
     const btn = document.getElementById('fetchUrlBtn');
     const url = urlInput.value.trim();
     if (!url) return;
     try { new URL(url); } catch {
-        alert('Please enter a valid URL (e.g. https://example.com/article)');
+        showUploadStatus('Please enter a valid URL (e.g. https://example.com/article)', true);
         return;
     }
     btn.disabled = true;
     btn.textContent = 'Fetching...';
+    hideUploadStatus();
     try {
         const res = await fetch(WORKER_URL + '/scrape', {
             method: 'POST',
@@ -554,14 +596,136 @@ async function fetchUrl() {
             throw new Error(err.error || 'Failed to fetch URL');
         }
         const data = await res.json();
-        if (data.text) {
+        if (isGarbageScrape(data.text)) {
+            showUploadStatus(
+                'That site requires login or JavaScript to load. Try uploading a PDF/file instead, or copy-paste the text manually.',
+                true
+            );
+        } else {
             document.getElementById('contentInput').value = data.text.slice(0, 15000);
+            showUploadStatus('Scraped ' + data.text.split(/\s+/).length + ' words from URL', false);
         }
     } catch (err) {
-        alert('Could not fetch that URL: ' + err.message);
+        showUploadStatus('Could not fetch that URL: ' + err.message, true);
     }
     btn.disabled = false;
     btn.textContent = 'Fetch';
+}
+
+async function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const label = document.getElementById('uploadLabel');
+    label.classList.add('active');
+    hideUploadStatus();
+    
+    const name = file.name.toLowerCase();
+    let text = '';
+    
+    try {
+        if (name.endsWith('.txt') || name.endsWith('.rtf')) {
+            text = await file.text();
+            if (name.endsWith('.rtf')) {
+                text = text.replace(/\{\\[^{}]*\}/g, '').replace(/\\[a-z]+\d*\s?/g, '').replace(/[{}]/g, '');
+            }
+        } else if (name.endsWith('.pdf')) {
+            text = await extractPdfText(file);
+        } else if (name.endsWith('.docx') || name.endsWith('.doc')) {
+            text = await extractDocxText(file);
+        } else {
+            showUploadStatus('Unsupported file type. Use PDF, TXT, or DOCX.', true);
+            label.classList.remove('active');
+            return;
+        }
+        
+        text = text.replace(/\s+/g, ' ').trim();
+        if (text.length < 50) {
+            showUploadStatus('Could not extract enough text from that file. Try a different format or copy-paste.', true);
+            label.classList.remove('active');
+            return;
+        }
+        
+        document.getElementById('contentInput').value = text.slice(0, 15000);
+        showUploadStatus('Loaded ' + text.split(/\s+/).length + ' words from ' + file.name, false);
+    } catch (err) {
+        showUploadStatus('Error reading file: ' + err.message, true);
+        label.classList.remove('active');
+    }
+    e.target.value = '';
+}
+
+async function extractPdfText(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pages = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(' ');
+        pages.push(pageText);
+    }
+    return pages.join('\n');
+}
+
+async function extractDocxText(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await loadZip(arrayBuffer);
+    const docXml = zip['word/document.xml'];
+    if (!docXml) throw new Error('Not a valid DOCX file');
+    const text = new TextDecoder().decode(docXml);
+    return text
+        .replace(/<w:p[^>]*>/g, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+}
+
+async function loadZip(buffer) {
+    const view = new DataView(buffer);
+    const files = {};
+    let offset = 0;
+    while (offset < view.byteLength - 4) {
+        const sig = view.getUint32(offset, true);
+        if (sig !== 0x04034b50) break;
+        const compressed = view.getUint16(offset + 8, true);
+        const compSize = view.getUint32(offset + 18, true);
+        const uncompSize = view.getUint32(offset + 22, true);
+        const nameLen = view.getUint16(offset + 26, true);
+        const extraLen = view.getUint16(offset + 28, true);
+        const name = new TextDecoder().decode(
+            new Uint8Array(buffer, offset + 30, nameLen)
+        );
+        const dataStart = offset + 30 + nameLen + extraLen;
+        const raw = new Uint8Array(buffer, dataStart, compSize);
+        if (compressed === 0) {
+            files[name] = raw;
+        } else if (compressed === 8) {
+            const ds = new DecompressionStream('deflate-raw');
+            const writer = ds.writable.getWriter();
+            writer.write(raw);
+            writer.close();
+            const reader = ds.readable.getReader();
+            const chunks = [];
+            let done = false;
+            while (!done) {
+                const r = await reader.read();
+                if (r.value) chunks.push(r.value);
+                done = r.done;
+            }
+            const total = chunks.reduce((s, c) => s + c.length, 0);
+            const result = new Uint8Array(total);
+            let pos = 0;
+            for (const c of chunks) { result.set(c, pos); pos += c.length; }
+            files[name] = result;
+        }
+        offset = dataStart + compSize;
+    }
+    return files;
 }
 
 function generateFallback(content) {

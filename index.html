@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600&family=Homemade+Apple&family=Rock+Salt&family=Reenie+Beanie&family=Covered+By+Your+Grace&family=Patrick+Hand&family=Caveat:wght@400;500;600&family=Indie+Flower&family=Architects+Daughter&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
     <div class="parallax-bg"></div>
@@ -119,10 +120,19 @@
             </div>
             
             <div class="input-wrapper">
-                <div class="url-input-row">
-                    <input type="url" id="urlInput" placeholder="Paste a URL to scrape content from a website..." class="url-field">
-                    <button id="fetchUrlBtn" class="btn-fetch">Fetch</button>
+                <div class="upload-row">
+                    <div class="url-input-row">
+                        <input type="url" id="urlInput" placeholder="Paste a URL to scrape content..." class="url-field">
+                        <button id="fetchUrlBtn" class="btn-fetch">Fetch</button>
+                    </div>
+                    <div class="upload-divider-v"></div>
+                    <label class="btn-upload" id="uploadLabel">
+                        <input type="file" id="fileUpload" accept=".pdf,.txt,.docx,.doc,.rtf" hidden>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Upload File
+                    </label>
                 </div>
+                <div id="uploadStatus" class="upload-status hidden"></div>
                 <div class="input-divider"><span>or paste text directly</span></div>
                 <textarea id="contentInput" placeholder="Paste text from a textbook, article, or lecture notes..."></textarea>
             </div>
