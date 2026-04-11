@@ -537,37 +537,39 @@ async function callAI(content) {
 function setupBookmarklet() {
     const code = `(function(){
 var S=[];
+var seen=new Set();
+function add(t){t=t.trim();if(t&&t.length>1&&!seen.has(t)){seen.add(t);S.push(t)}}
 function walk(n){
 if(!n)return;
-if(n.nodeType===3){var t=n.textContent.trim();if(t)S.push(t);return}
+if(n.nodeType===3){add(n.textContent);return}
 if(n.nodeType!==1)return;
 var tag=n.tagName;
-if(/^(SCRIPT|STYLE|NOSCRIPT|SVG|LINK|META)$/.test(tag))return;
-var st=getComputedStyle(n);
-if(st.display==='none'&&!n.closest('[role]'))return;
-if(n.tagName==='INPUT'&&n.type!=='hidden'&&n.value.trim())S.push(n.value.trim());
-if(n.tagName==='TEXTAREA'&&n.value.trim())S.push(n.value.trim());
-if(n.tagName==='SELECT'){var o=n.options[n.selectedIndex];if(o)S.push(o.text.trim())}
-var a=n.getAttribute('aria-label');if(a)S.push(a);
-var alt=n.getAttribute('alt');if(alt&&alt.length>3)S.push(alt);
-var title=n.getAttribute('title');if(title&&title.length>3&&title!==n.textContent.trim())S.push(title);
+if(/^(SCRIPT|STYLE|NOSCRIPT|SVG|LINK|META|HEAD|IFRAME)$/.test(tag))return;
+var def=n.getAttribute('data-definition');if(def)add('('+def+')');
+if(tag==='INPUT'&&n.type!=='hidden'){var v=n.value.trim();if(v.length>3)add(v)}
+if(tag==='TEXTAREA'){var v2=n.value.trim();if(v2)add(v2)}
 if(n.shadowRoot)walk(n.shadowRoot);
 var ch=n.childNodes;
 for(var i=0;i<ch.length;i++)walk(ch[i]);
 }
 walk(document.body);
-try{var fs=document.querySelectorAll('iframe');
-fs.forEach(function(f){try{walk(f.contentDocument.body)}catch(e){}});}catch(e){}
-var txt=S.join(' ').replace(/\\s+/g,' ').trim();
-if(!txt){alert('No text found on this page.');return}
+try{document.querySelectorAll('iframe').forEach(function(f){
+try{walk(f.contentDocument.body)}catch(e){}});}catch(e){}
+var txt=S.join(' ');
+txt=txt.replace(/<[^>]+>/g,' ');
+txt=txt.replace(/\\b(xmlns|class|data-\\w+|id|style)\\s*=\\s*"[^"]*"/g,' ');
+txt=txt.replace(/\\{[^}]{0,500}\\}/g,' ');
+txt=txt.replace(/[<>]/g,' ');
+txt=txt.replace(/\\s+/g,' ').trim();
+if(!txt||txt.length<20){alert('No usable text found on this page.');return}
 var w=txt.split(/\\s+/).length;
 navigator.clipboard.writeText(txt).then(function(){
-alert('Copied '+w+' words to clipboard! Go paste it in Cornell Notes.');
+alert('Copied '+w+' words! Paste in Cornell Notes.');
 }).catch(function(){
 var ta=document.createElement('textarea');
-ta.value=txt;ta.style.cssText='position:fixed;top:0;left:0;width:100%;height:40%;z-index:999999;font-size:14px;padding:12px;';
-document.body.appendChild(ta);ta.select();
-alert('Could not auto-copy. The text is in the box at the top — select all and copy it.');
+ta.value=txt;ta.style.cssText='position:fixed;top:0;left:0;width:100%;height:40%;z-index:999999;font:14px system-ui;padding:12px;background:#fff;border:3px solid #2563eb;';
+document.body.appendChild(ta);ta.focus();ta.select();
+alert('Text is in the box at top. Ctrl+A then Ctrl+C to copy.');
 });
 })()`;
     const el = document.getElementById('bookmarkletLink');
