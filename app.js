@@ -536,32 +536,33 @@ async function callAI(content) {
 
 function setupBookmarklet() {
     const code = `(function(){
+var skip=/^(SCRIPT|STYLE|NOSCRIPT|SVG|LINK|META|HEAD|NAV|FOOTER|HEADER|BUTTON|SELECT|OPTION)$/;
 var S=[];
-var seen=new Set();
-function add(t){t=t.trim();if(t&&t.length>1&&!seen.has(t)){seen.add(t);S.push(t)}}
 function walk(n){
 if(!n)return;
-if(n.nodeType===3){add(n.textContent);return}
+if(n.nodeType===3){var t=n.textContent;if(t&&/\\S/.test(t))S.push(t);return}
 if(n.nodeType!==1)return;
-var tag=n.tagName;
-if(/^(SCRIPT|STYLE|NOSCRIPT|SVG|LINK|META|HEAD|IFRAME)$/.test(tag))return;
-var def=n.getAttribute('data-definition');if(def)add('('+def+')');
-if(tag==='INPUT'&&n.type!=='hidden'){var v=n.value.trim();if(v.length>3)add(v)}
-if(tag==='TEXTAREA'){var v2=n.value.trim();if(v2)add(v2)}
+if(skip.test(n.tagName))return;
+var r=n.getAttribute('role');
+if(r&&/^(navigation|banner|contentinfo|menu|menubar|toolbar|complementary)$/.test(r))return;
+var cl=n.className||'';
+if(typeof cl==='string'&&/\\b(nav|menu|sidebar|footer|header|toolbar|cookie|banner|popup|modal|ad-|ads-)\\b/i.test(cl))return;
+var def=n.getAttribute('data-definition');
+if(def)S.push(' ('+def+') ');
+if(n.tagName==='INPUT'&&/^(text|search)$/.test(n.type)){var v=n.value;if(v&&v.length>10)S.push(v)}
+if(n.tagName==='TEXTAREA'){var v2=n.value;if(v2&&v2.length>10)S.push(v2)}
 if(n.shadowRoot)walk(n.shadowRoot);
-var ch=n.childNodes;
-for(var i=0;i<ch.length;i++)walk(ch[i]);
+for(var i=0;i<n.childNodes.length;i++)walk(n.childNodes[i]);
 }
-walk(document.body);
+var root=document.querySelector('article,main,[role=main],.content,.ep-read,#content,#main');
+if(root)walk(root);else walk(document.body);
 try{document.querySelectorAll('iframe').forEach(function(f){
 try{walk(f.contentDocument.body)}catch(e){}});}catch(e){}
-var txt=S.join(' ');
-txt=txt.replace(/<[^>]+>/g,' ');
-txt=txt.replace(/\\b(xmlns|class|data-\\w+|id|style)\\s*=\\s*"[^"]*"/g,' ');
-txt=txt.replace(/\\{[^}]{0,500}\\}/g,' ');
-txt=txt.replace(/[<>]/g,' ');
-txt=txt.replace(/\\s+/g,' ').trim();
-if(!txt||txt.length<20){alert('No usable text found on this page.');return}
+var txt=S.join('');
+txt=txt.replace(/[ \\t]+/g,' ');
+txt=txt.replace(/(\\r?\\n\\s*){3,}/g,'\\n\\n');
+txt=txt.trim();
+if(!txt||txt.length<20){alert('No text found.');return}
 var w=txt.split(/\\s+/).length;
 navigator.clipboard.writeText(txt).then(function(){
 alert('Copied '+w+' words! Paste in Cornell Notes.');
@@ -569,7 +570,7 @@ alert('Copied '+w+' words! Paste in Cornell Notes.');
 var ta=document.createElement('textarea');
 ta.value=txt;ta.style.cssText='position:fixed;top:0;left:0;width:100%;height:40%;z-index:999999;font:14px system-ui;padding:12px;background:#fff;border:3px solid #2563eb;';
 document.body.appendChild(ta);ta.focus();ta.select();
-alert('Text is in the box at top. Ctrl+A then Ctrl+C to copy.');
+alert('Text is in the box. Ctrl+A then Ctrl+C.');
 });
 })()`;
     const el = document.getElementById('bookmarkletLink');
