@@ -843,6 +843,62 @@ body:has(.hero-fullscreen.active) .parallax-bg{
     margin-bottom:16px;
 }
 
+.url-input-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:0;
+}
+
+.url-field{
+    flex:1;
+    padding:10px 14px;
+    border:1.5px solid var(--border);
+    border-radius:var(--radius-sm);
+    font-size:14px;
+    font-family:inherit;
+    background:var(--surface);
+    color:var(--ink);
+    transition:var(--transition);
+}
+
+.url-field:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px var(--accent-soft);
+}
+
+.btn-fetch{
+    padding:10px 20px;
+    background:#1a1a1a;
+    color:white;
+    border:none;
+    border-radius:var(--radius-sm);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:var(--transition);
+    white-space:nowrap;
+}
+
+.btn-fetch:hover{background:#333}
+.btn-fetch:disabled{opacity:0.5;cursor:not-allowed}
+
+.input-divider{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:12px 0;
+    color:var(--ink-muted);
+    font-size:12px;
+}
+
+.input-divider::before,.input-divider::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background:var(--border);
+}
+
 .cornell-paper{
     position:relative;
     width:90vw;
@@ -907,20 +963,18 @@ body:has(.hero-fullscreen.active) .parallax-bg{
 }
 
 .col-main-ideas{
-    width:28%;
+    width:30%;
     padding-right:24px;
-    border-right:1px solid var(--border);
 }
 
 .col-notes{
-    width:72%;
+    width:70%;
     padding-left:28px;
 }
 
 .col-label{
-    font-size:10px;
-    text-transform:uppercase;
-    letter-spacing:0.08em;
+    font-size:14px;
+    letter-spacing:0.02em;
     color:var(--ink-muted);
     margin-bottom:16px;
 }
@@ -932,7 +986,6 @@ body:has(.hero-fullscreen.active) .parallax-bg{
 .summary-section{
     padding-top:20px;
     margin-top:24px;
-    border-top:1px solid var(--border);
 }
 
 .modal{

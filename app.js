@@ -187,6 +187,8 @@ function setupEventListeners() {
     document.getElementById('backToStyleBtn').addEventListener('click', backToHero);
     document.querySelector('.modal-backdrop').addEventListener('click', closeTraceModal);
 
+    document.getElementById('fetchUrlBtn').addEventListener('click', fetchUrl);
+
     document.querySelectorAll('.style-option').forEach(opt => {
         opt.addEventListener('click', () => {
             document.querySelectorAll('.style-option').forEach(o => o.classList.remove('selected'));
@@ -530,6 +532,38 @@ async function callAI(content) {
     return data;
 }
 
+async function fetchUrl() {
+    const urlInput = document.getElementById('urlInput');
+    const btn = document.getElementById('fetchUrlBtn');
+    const url = urlInput.value.trim();
+    if (!url) return;
+    try { new URL(url); } catch {
+        alert('Please enter a valid URL (e.g. https://example.com/article)');
+        return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Fetching...';
+    try {
+        const res = await fetch(WORKER_URL + '/scrape', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: 'Failed to fetch' }));
+            throw new Error(err.error || 'Failed to fetch URL');
+        }
+        const data = await res.json();
+        if (data.text) {
+            document.getElementById('contentInput').value = data.text.slice(0, 15000);
+        }
+    } catch (err) {
+        alert('Could not fetch that URL: ' + err.message);
+    }
+    btn.disabled = false;
+    btn.textContent = 'Fetch';
+}
+
 function generateFallback(content) {
     const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
     const topic = content.split('\n')[0].slice(0, 60).trim() || 'Notes';
@@ -569,11 +603,18 @@ function displayNotes(notes) {
         }
     }
     
+    const preset = HANDWRITING_PRESETS[selectedStyle] || HANDWRITING_PRESETS.neat;
+    document.querySelectorAll('.col-label').forEach(l => {
+        l.style.fontFamily = preset.font;
+        l.style.fontSize = '14px';
+        l.style.textTransform = 'none';
+        l.style.letterSpacing = 'normal';
+    });
+    
     document.getElementById('leftColLabel').textContent = 'Main Ideas';
     document.getElementById('rightColLabel').textContent = 'Notes';
     document.getElementById('summaryLabel').textContent = 'Summary';
     
-    drawPaper();
     writeText('topicArea', notes.topic || 'Notes');
     writeText('nameArea', '');
     writeText('dateArea', new Date().toLocaleDateString());
@@ -596,6 +637,7 @@ function displayNotes(notes) {
     const summaryDiv = document.getElementById('summaryContent');
     summaryDiv.innerHTML = '';
     writeTextToElement(summaryDiv, notes.summary, 1050);
+    requestAnimationFrame(() => drawPaper());
 }
 
 function isColorDark(hex) {
@@ -607,10 +649,25 @@ function isColorDark(hex) {
 
 function drawPaper() {
     const canvas = paperCanvas;
-    const rect = canvas.parentElement.getBoundingClientRect();
+    const paperEl = canvas.parentElement;
+    const rect = paperEl.getBoundingClientRect();
     canvas.width = rect.width;
-    canvas.height = Math.max(1300, rect.height);
+    canvas.height = Math.max(1300, paperEl.scrollHeight || rect.height);
     const ctx = canvas.getContext('2d');
+    
+    const cornellLayout = document.querySelector('.cornell-layout');
+    const summarySection = document.querySelector('.summary-section');
+    const colMainIdeas = document.querySelector('.col-main-ideas');
+    const headerTopic = document.querySelector('.header-topic');
+    const paperRect = paperEl.getBoundingClientRect();
+    const headerLineY = headerTopic ? 
+        headerTopic.getBoundingClientRect().bottom - paperRect.top + 8 : 110;
+    const dividerXPos = colMainIdeas ? 
+        colMainIdeas.getBoundingClientRect().right - paperRect.left : canvas.width * 0.3;
+    const layoutTop = cornellLayout ? 
+        cornellLayout.getBoundingClientRect().top - paperRect.top : 120;
+    const summaryY = summarySection ? 
+        summarySection.getBoundingClientRect().top - paperRect.top : canvas.height - 180;
     
     const tintColors = {
         white: '#fefefe',
@@ -802,15 +859,13 @@ function drawPaper() {
                          selectedPaper === 'kraft' ? '#8b6914' : '#333';
     ctx.strokeStyle = dividerColor;
     ctx.lineWidth = 1.5;
-    const dividerX = canvas.width * 0.3;
     ctx.beginPath();
-    ctx.moveTo(dividerX, 120);
-    for (let y = 120; y < canvas.height - 200; y += 25) {
-        ctx.lineTo(dividerX + (Math.random() - 0.5) * 2, y);
+    ctx.moveTo(dividerXPos, layoutTop);
+    for (let y = layoutTop; y < summaryY; y += 25) {
+        ctx.lineTo(dividerXPos + (Math.random() - 0.5) * 2, y);
     }
     ctx.stroke();
     
-    const summaryY = canvas.height - 180;
     ctx.beginPath();
     ctx.moveTo(40, summaryY);
     for (let x = 40; x < canvas.width - 30; x += 25) {
@@ -819,9 +874,9 @@ function drawPaper() {
     ctx.stroke();
     
     ctx.beginPath();
-    ctx.moveTo(40, 110);
+    ctx.moveTo(40, headerLineY);
     for (let x = 40; x < canvas.width - 30; x += 25) {
-        ctx.lineTo(x, 110 + (Math.random() - 0.5) * 1.5);
+        ctx.lineTo(x, headerLineY + (Math.random() - 0.5) * 1.5);
     }
     ctx.stroke();
 }
@@ -837,8 +892,9 @@ function writeTextToElement(element, text, maxWidth) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const preset = HANDWRITING_PRESETS[selectedStyle] || HANDWRITING_PRESETS.neat;
-    const fontSize = 24;
-    const lineHeight = 36;
+    const lsRaw = selectedPaper === 'custom' ? customPaper.lineSpacing : paperLineSpacing;
+    const lineHeight = Math.max(28, lsRaw);
+    const fontSize = Math.max(16, Math.round(lineHeight * 0.7));
     ctx.font = `${fontSize}px ${preset.font}`;
     
     const words = text.split(' ');

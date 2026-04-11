@@ -28,10 +28,75 @@ const CORS_HEADERS = {
     'Access-Control-Allow-Headers': 'Content-Type'
 };
 
+function stripHtml(html) {
+    let text = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+    text = text.replace(/<style[\s\S]*?<\/style>/gi, '');
+    text = text.replace(/<nav[\s\S]*?<\/nav>/gi, '');
+    text = text.replace(/<footer[\s\S]*?<\/footer>/gi, '');
+    text = text.replace(/<header[\s\S]*?<\/header>/gi, '');
+    text = text.replace(/<[^>]+>/g, ' ');
+    text = text.replace(/&nbsp;/g, ' ');
+    text = text.replace(/&amp;/g, '&');
+    text = text.replace(/&lt;/g, '<');
+    text = text.replace(/&gt;/g, '>');
+    text = text.replace(/&quot;/g, '"');
+    text = text.replace(/&#39;/g, "'");
+    text = text.replace(/\s+/g, ' ');
+    return text.trim();
+}
+
 export default {
     async fetch(request) {
         if (request.method === 'OPTIONS') {
             return new Response(null, { headers: CORS_HEADERS });
+        }
+
+        const url = new URL(request.url);
+        
+        if (url.pathname === '/scrape' && request.method === 'POST') {
+            try {
+                const body = await request.json();
+                const targetUrl = body.url;
+                if (!targetUrl || typeof targetUrl !== 'string') {
+                    return new Response(JSON.stringify({ error: 'Missing url field' }), {
+                        status: 400,
+                        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+                    });
+                }
+                let parsed;
+                try { parsed = new URL(targetUrl); } catch {
+                    return new Response(JSON.stringify({ error: 'Invalid URL' }), {
+                        status: 400,
+                        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+                    });
+                }
+                if (!['http:', 'https:'].includes(parsed.protocol)) {
+                    return new Response(JSON.stringify({ error: 'Only HTTP/HTTPS URLs allowed' }), {
+                        status: 400,
+                        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+                    });
+                }
+                const res = await fetch(targetUrl, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CornellNotesBot/1.0)' },
+                    redirect: 'follow'
+                });
+                if (!res.ok) {
+                    return new Response(JSON.stringify({ error: `Failed to fetch: ${res.status}` }), {
+                        status: 502,
+                        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+                    });
+                }
+                const html = await res.text();
+                const text = stripHtml(html).slice(0, 30000);
+                return new Response(JSON.stringify({ text }), {
+                    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+                });
+            } catch (err) {
+                return new Response(JSON.stringify({ error: err.message || 'Scrape failed' }), {
+                    status: 500,
+                    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+                });
+            }
         }
 
         if (request.method !== 'POST') {
