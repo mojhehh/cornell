@@ -899,6 +899,43 @@ body:has(.hero-fullscreen.active) .parallax-bg{
     background:var(--border);
 }
 
+.bookmarklet-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+}
+
+.bookmarklet-hint{
+    font-size:12px;
+    color:var(--ink-muted);
+}
+
+.bookmarklet-link{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:5px 12px;
+    background:linear-gradient(135deg,#1a1a2e,#2a2a4e);
+    color:#fff;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+    text-decoration:none;
+    cursor:grab;
+    white-space:nowrap;
+    transition:var(--transition);
+    box-shadow:0 2px 8px rgba(0,0,0,0.15);
+}
+
+.bookmarklet-link:hover{
+    transform:translateY(-1px);
+    box-shadow:0 4px 12px rgba(0,0,0,0.25);
+}
+
+.bookmarklet-link:active{cursor:grabbing}
+
 .upload-row{
     display:flex;
     gap:10px;

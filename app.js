@@ -189,6 +189,7 @@ function setupEventListeners() {
 
     document.getElementById('fetchUrlBtn').addEventListener('click', fetchUrl);
     document.getElementById('fileUpload').addEventListener('change', handleFileUpload);
+    setupBookmarklet();
 
     document.querySelectorAll('.style-option').forEach(opt => {
         opt.addEventListener('click', () => {
@@ -531,6 +532,52 @@ async function callAI(content) {
         throw new Error('Invalid response format');
     }
     return data;
+}
+
+function setupBookmarklet() {
+    const code = `(function(){
+var S=[];
+function walk(n){
+if(!n)return;
+if(n.nodeType===3){var t=n.textContent.trim();if(t)S.push(t);return}
+if(n.nodeType!==1)return;
+var tag=n.tagName;
+if(/^(SCRIPT|STYLE|NOSCRIPT|SVG|LINK|META)$/.test(tag))return;
+var st=getComputedStyle(n);
+if(st.display==='none'&&!n.closest('[role]'))return;
+if(n.tagName==='INPUT'&&n.type!=='hidden'&&n.value.trim())S.push(n.value.trim());
+if(n.tagName==='TEXTAREA'&&n.value.trim())S.push(n.value.trim());
+if(n.tagName==='SELECT'){var o=n.options[n.selectedIndex];if(o)S.push(o.text.trim())}
+var a=n.getAttribute('aria-label');if(a)S.push(a);
+var alt=n.getAttribute('alt');if(alt&&alt.length>3)S.push(alt);
+var title=n.getAttribute('title');if(title&&title.length>3&&title!==n.textContent.trim())S.push(title);
+if(n.shadowRoot)walk(n.shadowRoot);
+var ch=n.childNodes;
+for(var i=0;i<ch.length;i++)walk(ch[i]);
+}
+walk(document.body);
+try{var fs=document.querySelectorAll('iframe');
+fs.forEach(function(f){try{walk(f.contentDocument.body)}catch(e){}});}catch(e){}
+var txt=S.join(' ').replace(/\\s+/g,' ').trim();
+if(!txt){alert('No text found on this page.');return}
+var w=txt.split(/\\s+/).length;
+navigator.clipboard.writeText(txt).then(function(){
+alert('Copied '+w+' words to clipboard! Go paste it in Cornell Notes.');
+}).catch(function(){
+var ta=document.createElement('textarea');
+ta.value=txt;ta.style.cssText='position:fixed;top:0;left:0;width:100%;height:40%;z-index:999999;font-size:14px;padding:12px;';
+document.body.appendChild(ta);ta.select();
+alert('Could not auto-copy. The text is in the box at the top — select all and copy it.');
+});
+})()`;
+    const el = document.getElementById('bookmarkletLink');
+    if (el) {
+        el.href = 'javascript:' + encodeURIComponent(code);
+        el.addEventListener('click', function(e) {
+            e.preventDefault();
+            alert("Don't click \u2014 drag this button to your bookmarks bar! Then click it on any page to grab all the text.");
+        });
+    }
 }
 
 const GARBAGE_PATTERNS = [
