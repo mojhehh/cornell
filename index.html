@@ -204,40 +204,7 @@
             </div>
 
             <div id="customPaperBuilder" class="custom-builder hidden">
-                <span class="selector-label">Block Layout Editor</span>
-                <div class="block-editor-toolbar">
-                    <button class="block-add-btn" data-block="main-ideas" title="Add Main Ideas block">+ Main Ideas</button>
-                    <button class="block-add-btn" data-block="questions" title="Add Questions block">+ Questions</button>
-                    <button class="block-add-btn" data-block="notes" title="Add Notes/Answers block">+ Notes</button>
-                    <button class="block-add-btn" data-block="summary" title="Add Summary block">+ Summary</button>
-                    <button class="block-add-btn" data-block="vocab" title="Add Vocabulary block">+ Vocab</button>
-                    <button class="block-add-btn" data-block="timeline" title="Add Timeline block">+ Timeline</button>
-                    <button class="block-add-btn" data-block="free" title="Add free text block">+ Free Text</button>
-                    <button class="block-add-btn" data-block="divider" title="Add a divider line">+ Divider</button>
-                </div>
-                <div class="block-editor-colors">
-                    <label class="tool-label">BG</label>
-                    <input type="color" id="editorBg" value="#fefefe" class="tool-color" title="Background color">
-                    <label class="tool-label">Lines</label>
-                    <input type="color" id="editorLineColor" value="#a8d4ff" class="tool-color" title="Line color">
-                    <label class="tool-label">Ink</label>
-                    <input type="color" id="editorInk" value="#1a1a2e" class="tool-color" title="Ink color">
-                    <label class="tool-label">Labels</label>
-                    <input type="color" id="editorLabelColor" value="#888888" class="tool-color" title="Label color">
-                    <label class="tool-label">Pattern</label>
-                    <select id="editorPattern" class="block-select" title="Line pattern">
-                        <option value="lined">Lined</option>
-                        <option value="graph">Graph</option>
-                        <option value="dotted">Dotted</option>
-                        <option value="plain">None</option>
-                    </select>
-                    <label class="tool-label">Spacing</label>
-                    <input type="range" id="editorSpacing" min="10" max="50" value="26" class="tool-range" title="Line spacing">
-                </div>
-                <div id="blockEditorCanvas" class="block-editor-canvas">
-                    <div class="block-editor-empty">Click buttons above to add blocks to your layout</div>
-                </div>
-                <div class="editor-hint">Drag blocks to reorder. Each block tells the AI where to put content.</div>
+                <span class="selector-label">Custom paper selected — <button type="button" id="openEditorBtn" class="link-btn">Open Layout Editor</button></span>
             </div>
             
             <div class="paper-customize">
@@ -330,6 +297,56 @@
             </div>
         </section>
     </main>
+
+    <div id="editorOverlay" class="editor-overlay hidden">
+        <div class="editor-page">
+            <div class="editor-header">
+                <h2>Layout Editor</h2>
+                <button id="editorDoneBtn" class="btn-primary btn-sm">Done</button>
+            </div>
+            <div class="editor-body">
+                <div class="editor-sidebar">
+                    <div class="editor-section">
+                        <span class="editor-section-title">Add Blocks</span>
+                        <div class="block-editor-toolbar">
+                            <button class="block-add-btn" data-block="main-ideas">💡 Main Ideas</button>
+                            <button class="block-add-btn" data-block="questions">❓ Questions</button>
+                            <button class="block-add-btn" data-block="notes">📝 Notes</button>
+                            <button class="block-add-btn" data-block="summary">📋 Summary</button>
+                            <button class="block-add-btn" data-block="vocab">📖 Vocab</button>
+                            <button class="block-add-btn" data-block="timeline">📅 Timeline</button>
+                            <button class="block-add-btn" data-block="free">✏️ Free Text</button>
+                            <button class="block-add-btn" data-block="divider">➖ Divider</button>
+                        </div>
+                    </div>
+                    <div class="editor-section">
+                        <span class="editor-section-title">Colors</span>
+                        <div class="editor-color-grid">
+                            <label class="editor-color-row"><span>Background</span><input type="color" id="editorBg" value="#fefefe" class="tool-color"></label>
+                            <label class="editor-color-row"><span>Lines</span><input type="color" id="editorLineColor" value="#a8d4ff" class="tool-color"></label>
+                            <label class="editor-color-row"><span>Ink</span><input type="color" id="editorInk" value="#1a1a2e" class="tool-color"></label>
+                            <label class="editor-color-row"><span>Labels</span><input type="color" id="editorLabelColor" value="#888888" class="tool-color"></label>
+                        </div>
+                    </div>
+                    <div class="editor-section">
+                        <span class="editor-section-title">Pattern</span>
+                        <select id="editorPattern" class="editor-select" title="Line pattern">
+                            <option value="lined">Lined</option>
+                            <option value="graph">Graph</option>
+                            <option value="dotted">Dotted</option>
+                            <option value="plain">None</option>
+                        </select>
+                        <label class="editor-range-row"><span>Spacing</span><input type="range" id="editorSpacing" min="10" max="50" value="26"></label>
+                    </div>
+                </div>
+                <div class="editor-canvas-area">
+                    <div id="blockEditorCanvas" class="block-editor-canvas">
+                        <div class="block-editor-empty">Click a block type on the left to add it here.<br>Drag to reorder. Each block tells the AI where to put content.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div id="traceModal" class="modal hidden">
         <div class="modal-backdrop"></div>

@@ -206,6 +206,7 @@ function setupEventListeners() {
             selectedPaper = btn.dataset.paper;
             const builder = document.getElementById('customPaperBuilder');
             if (builder) builder.classList.toggle('hidden', selectedPaper !== 'custom');
+            if (selectedPaper === 'custom') openEditor();
         });
     });
 
@@ -513,7 +514,6 @@ async function callAI(content) {
     return data;
 }
 
-let paperEditorImage = null;
 let customBlocks = [];
 
 const BLOCK_TYPES = {
@@ -527,6 +527,14 @@ const BLOCK_TYPES = {
     'divider': { icon: '➖', label: 'Divider', desc: 'A horizontal divider line', defaultLabel: '' }
 };
 
+function openEditor() {
+    document.getElementById('editorOverlay').classList.remove('hidden');
+}
+
+function closeEditor() {
+    document.getElementById('editorOverlay').classList.add('hidden');
+}
+
 function setupPaperEditor() {
     const canvas = document.getElementById('blockEditorCanvas');
     if (!canvas) return;
@@ -536,7 +544,7 @@ function setupPaperEditor() {
     function renderBlocks() {
         canvas.innerHTML = '';
         if (customBlocks.length === 0) {
-            canvas.innerHTML = '<div class="block-editor-empty">Click buttons above to add blocks to your layout</div>';
+            canvas.innerHTML = '<div class="block-editor-empty">Click a block type on the left to add it here.<br>Drag to reorder. Each block tells the AI where to put content.</div>';
             return;
         }
         customBlocks.forEach((block, i) => {
@@ -608,6 +616,12 @@ function setupPaperEditor() {
             renderBlocks();
         });
     });
+
+    const openBtn = document.getElementById('openEditorBtn');
+    if (openBtn) openBtn.addEventListener('click', openEditor);
+
+    const doneBtn = document.getElementById('editorDoneBtn');
+    if (doneBtn) doneBtn.addEventListener('click', closeEditor);
 
     const bgInput = document.getElementById('editorBg');
     if (bgInput) bgInput.addEventListener('input', () => { customPaper.bg = bgInput.value; });
@@ -1315,25 +1329,33 @@ function drawPaper() {
         }
     }
     
+    const usingBlockLayout = selectedPaper === 'custom' && customBlocks.length > 0;
+
     const dividerColor = selectedPaper === 'custom' ? customPaper.dividerColor :
                          isDark ? 'rgba(255,255,255,0.3)' :
                          selectedPaper === 'kraft' ? '#8b6914' : '#333';
     ctx.strokeStyle = dividerColor;
     ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(dividerXPos, layoutTop);
-    for (let y = layoutTop; y < summaryY; y += 25) {
-        ctx.lineTo(dividerXPos + (Math.random() - 0.5) * 2, y);
+
+    // Vertical divider between main ideas and notes columns (skip in block layout)
+    if (!usingBlockLayout) {
+        ctx.beginPath();
+        ctx.moveTo(dividerXPos, layoutTop);
+        for (let y = layoutTop; y < summaryY; y += 25) {
+            ctx.lineTo(dividerXPos + (Math.random() - 0.5) * 2, y);
+        }
+        ctx.stroke();
+
+        // Horizontal summary divider
+        ctx.beginPath();
+        ctx.moveTo(40, summaryY);
+        for (let x = 40; x < canvas.width - 30; x += 25) {
+            ctx.lineTo(x, summaryY + (Math.random() - 0.5) * 2);
+        }
+        ctx.stroke();
     }
-    ctx.stroke();
     
-    ctx.beginPath();
-    ctx.moveTo(40, summaryY);
-    for (let x = 40; x < canvas.width - 30; x += 25) {
-        ctx.lineTo(x, summaryY + (Math.random() - 0.5) * 2);
-    }
-    ctx.stroke();
-    
+    // Header line
     ctx.beginPath();
     ctx.moveTo(40, headerLineY);
     for (let x = 40; x < canvas.width - 30; x += 25) {
