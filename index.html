@@ -300,9 +300,49 @@
 
     <div id="editorOverlay" class="editor-overlay hidden">
         <div class="editor-page">
-            <div class="editor-header">
-                <h2>Layout Editor</h2>
-                <button id="editorDoneBtn" class="btn-primary btn-sm">Done</button>
+            <div class="editor-topbar">
+                <div class="editor-topbar-left">
+                    <button id="editorDoneBtn" class="btn-primary btn-sm">✓ Done</button>
+                    <div class="topbar-sep"></div>
+                    <span class="topbar-label">Size</span>
+                    <select id="editorPageSize" class="topbar-select" title="Page size">
+                        <option value="letter">Letter (8.5×11)</option>
+                        <option value="legal">Legal (8.5×14)</option>
+                        <option value="a4">A4 (210×297mm)</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                    <input type="number" id="editorW" class="topbar-num hidden" value="816" min="200" max="2000" title="Width px">
+                    <span id="editorWxH" class="topbar-label hidden">×</span>
+                    <input type="number" id="editorH" class="topbar-num hidden" value="1056" min="200" max="3000" title="Height px">
+                </div>
+                <div class="editor-topbar-center">
+                    <button class="tool-btn selected" data-tool="select" title="Select / Move">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+                    </button>
+                    <button class="tool-btn" data-tool="draw" title="Draw lines">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+                    </button>
+                    <button class="tool-btn" data-tool="line" title="Straight line">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+                    </button>
+                    <button class="tool-btn" data-tool="eraser" title="Eraser">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l9-9 8 8-4 4z"/><line x1="18" y1="13" x2="7" y2="2"/></svg>
+                    </button>
+                    <div class="topbar-sep"></div>
+                    <input type="color" id="editorDrawColor" value="#333333" class="topbar-color" title="Draw color">
+                    <label class="topbar-label">Size</label>
+                    <input type="range" id="editorDrawSize" min="1" max="12" value="2" class="topbar-range" title="Stroke width">
+                </div>
+                <div class="editor-topbar-right">
+                    <label class="topbar-filebtn" title="Set background image">
+                        <input type="file" id="editorBgImage" accept="image/*" hidden>
+                        🖼️ BG Image
+                    </label>
+                    <button id="editorClearBg" class="topbar-small-btn" title="Remove background image">✕ BG</button>
+                    <div class="topbar-sep"></div>
+                    <button id="editorUndo" class="topbar-small-btn" title="Undo">↩</button>
+                    <button id="editorClearDraw" class="topbar-small-btn" title="Clear all drawings">Clear</button>
+                </div>
             </div>
             <div class="editor-body">
                 <div class="editor-sidebar">
@@ -320,7 +360,7 @@
                         </div>
                     </div>
                     <div class="editor-section">
-                        <span class="editor-section-title">Colors</span>
+                        <span class="editor-section-title">Paper Colors</span>
                         <div class="editor-color-grid">
                             <label class="editor-color-row"><span>Background</span><input type="color" id="editorBg" value="#fefefe" class="tool-color"></label>
                             <label class="editor-color-row"><span>Lines</span><input type="color" id="editorLineColor" value="#a8d4ff" class="tool-color"></label>
@@ -329,7 +369,7 @@
                         </div>
                     </div>
                     <div class="editor-section">
-                        <span class="editor-section-title">Pattern</span>
+                        <span class="editor-section-title">Line Pattern</span>
                         <select id="editorPattern" class="editor-select" title="Line pattern">
                             <option value="lined">Lined</option>
                             <option value="graph">Graph</option>
@@ -340,8 +380,11 @@
                     </div>
                 </div>
                 <div class="editor-canvas-area">
-                    <div id="blockEditorCanvas" class="block-editor-canvas">
-                        <div class="block-editor-empty">Click a block type on the left to add it here.<br>Drag to reorder. Each block tells the AI where to put content.</div>
+                    <div id="editorPaperWrap" class="editor-paper-wrap">
+                        <div id="editorPaper" class="editor-paper" style="width:816px;height:1056px">
+                            <canvas id="editorDrawCanvas"></canvas>
+                            <div id="editorBlockLayer" class="editor-block-layer"></div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -515,6 +515,11 @@ async function callAI(content) {
 }
 
 let customBlocks = [];
+let editorBgImageData = null;
+let editorDrawHistory = [];
+let editorTool = 'select';
+let editorPaperW = 816;
+let editorPaperH = 1056;
 
 const BLOCK_TYPES = {
     'main-ideas': { icon: '💡', label: 'Main Ideas', desc: 'AI places main idea statements here', defaultLabel: 'Main Ideas' },
@@ -524,126 +529,445 @@ const BLOCK_TYPES = {
     'vocab': { icon: '📖', label: 'Vocabulary', desc: 'AI places key terms + definitions', defaultLabel: 'Vocabulary' },
     'timeline': { icon: '📅', label: 'Timeline', desc: 'AI places dates and events', defaultLabel: 'Timeline' },
     'free': { icon: '✏️', label: 'Free Text', desc: 'Custom label — you write the text', defaultLabel: '' },
-    'divider': { icon: '➖', label: 'Divider', desc: 'A horizontal divider line', defaultLabel: '' }
+    'divider': { icon: '➖', label: 'Divider', desc: 'A horizontal line', defaultLabel: '' }
+};
+
+const PAGE_SIZES = {
+    letter: { w: 816, h: 1056 },
+    legal: { w: 816, h: 1344 },
+    a4: { w: 794, h: 1123 }
 };
 
 function openEditor() {
-    document.getElementById('editorOverlay').classList.remove('hidden');
+    const ov = document.getElementById('editorOverlay');
+    ov.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        resizeEditorCanvas();
+        redrawEditorCanvas();
+        renderEditorBlocks();
+    });
 }
 
 function closeEditor() {
     document.getElementById('editorOverlay').classList.add('hidden');
 }
 
-function setupPaperEditor() {
-    const canvas = document.getElementById('blockEditorCanvas');
-    if (!canvas) return;
-    let dragItem = null;
-    let dragOverItem = null;
+function resizeEditorCanvas() {
+    const paper = document.getElementById('editorPaper');
+    const dc = document.getElementById('editorDrawCanvas');
+    if (!paper || !dc) return;
+    paper.style.width = editorPaperW + 'px';
+    paper.style.height = editorPaperH + 'px';
+    dc.width = editorPaperW;
+    dc.height = editorPaperH;
+}
 
-    function renderBlocks() {
-        canvas.innerHTML = '';
-        if (customBlocks.length === 0) {
-            canvas.innerHTML = '<div class="block-editor-empty">Click a block type on the left to add it here.<br>Drag to reorder. Each block tells the AI where to put content.</div>';
-            return;
+function redrawEditorCanvas() {
+    const dc = document.getElementById('editorDrawCanvas');
+    if (!dc) return;
+    const ctx = dc.getContext('2d');
+    ctx.clearRect(0, 0, dc.width, dc.height);
+    // BG color
+    ctx.fillStyle = customPaper.bg;
+    ctx.fillRect(0, 0, dc.width, dc.height);
+    // BG image
+    if (editorBgImageData) {
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, dc.width, dc.height);
+            drawEditorPattern(ctx, dc.width, dc.height);
+            replayDrawStrokes(ctx);
+        };
+        img.src = editorBgImageData;
+        return;
+    }
+    drawEditorPattern(ctx, dc.width, dc.height);
+    replayDrawStrokes(ctx);
+}
+
+function drawEditorPattern(ctx, w, h) {
+    const sp = customPaper.lineSpacing;
+    const lc = customPaper.lineColor;
+    if (customPaper.pattern === 'lined') {
+        ctx.strokeStyle = lc; ctx.lineWidth = 1;
+        for (let y = sp; y < h; y += sp) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
         }
-        customBlocks.forEach((block, i) => {
-            const bt = BLOCK_TYPES[block.type] || BLOCK_TYPES.free;
-            const el = document.createElement('div');
-            el.className = 'editor-block';
-            el.draggable = true;
-            el.dataset.index = i;
-            const isEditable = block.type === 'free';
-            el.innerHTML = `
-                <span class="block-icon">${bt.icon}</span>
-                <div class="block-info">
-                    <div class="block-type">${bt.label}</div>
-                    <div class="block-desc">${bt.desc}</div>
-                    ${block.type !== 'divider' ? `<input class="block-label-input" value="${(block.customLabel || bt.defaultLabel).replace(/"/g, '&quot;')}" placeholder="${isEditable ? 'Type your text here...' : 'Section label (optional)'}" data-idx="${i}">` : ''}
-                </div>
-                <button class="block-delete" data-idx="${i}" title="Remove">&times;</button>
-            `;
-            el.addEventListener('dragstart', (e) => {
-                dragItem = i;
-                el.classList.add('dragging');
-                e.dataTransfer.effectAllowed = 'move';
-            });
-            el.addEventListener('dragend', () => {
-                el.classList.remove('dragging');
-                canvas.querySelectorAll('.editor-block').forEach(b => b.classList.remove('drag-over'));
-                dragItem = null;
-                dragOverItem = null;
-            });
-            el.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                if (dragItem !== null && dragItem !== i) {
-                    canvas.querySelectorAll('.editor-block').forEach(b => b.classList.remove('drag-over'));
-                    el.classList.add('drag-over');
-                    dragOverItem = i;
-                }
-            });
-            el.addEventListener('drop', (e) => {
-                e.preventDefault();
-                if (dragItem !== null && dragOverItem !== null && dragItem !== dragOverItem) {
-                    const moved = customBlocks.splice(dragItem, 1)[0];
-                    customBlocks.splice(dragOverItem, 0, moved);
-                    renderBlocks();
-                }
-            });
-            canvas.appendChild(el);
+    } else if (customPaper.pattern === 'graph') {
+        ctx.strokeStyle = lc; ctx.lineWidth = 0.5;
+        for (let x = sp; x < w; x += sp) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+        for (let y = sp; y < h; y += sp) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+    } else if (customPaper.pattern === 'dotted') {
+        ctx.fillStyle = lc;
+        for (let x = sp; x < w; x += sp) {
+            for (let y = sp; y < h; y += sp) {
+                ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+    }
+}
+
+function replayDrawStrokes(ctx) {
+    editorDrawHistory.forEach(stroke => {
+        if (stroke.type === 'free' && stroke.pts.length > 1) {
+            ctx.strokeStyle = stroke.color;
+            ctx.lineWidth = stroke.size;
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(stroke.pts[0].x, stroke.pts[0].y);
+            for (let i = 1; i < stroke.pts.length; i++) {
+                ctx.lineTo(stroke.pts[i].x, stroke.pts[i].y);
+            }
+            ctx.stroke();
+        } else if (stroke.type === 'line') {
+            ctx.strokeStyle = stroke.color;
+            ctx.lineWidth = stroke.size;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(stroke.pts[0].x, stroke.pts[0].y);
+            ctx.lineTo(stroke.pts[1].x, stroke.pts[1].y);
+            ctx.stroke();
+        } else if (stroke.type === 'eraser' && stroke.pts.length > 1) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.strokeStyle = 'rgba(0,0,0,1)';
+            ctx.lineWidth = stroke.size * 6;
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(stroke.pts[0].x, stroke.pts[0].y);
+            for (let i = 1; i < stroke.pts.length; i++) {
+                ctx.lineTo(stroke.pts[i].x, stroke.pts[i].y);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+    });
+}
+
+function renderEditorBlocks() {
+    const layer = document.getElementById('editorBlockLayer');
+    if (!layer) return;
+    layer.innerHTML = '';
+    customBlocks.forEach((block, i) => {
+        const bt = BLOCK_TYPES[block.type] || BLOCK_TYPES.free;
+        const el = document.createElement('div');
+        el.className = 'paper-block';
+        el.dataset.idx = i;
+        el.style.left = (block.x || 20) + 'px';
+        el.style.top = (block.y || 20 + i * 80) + 'px';
+        el.style.width = (block.w || 250) + 'px';
+        el.style.height = (block.h || 60) + 'px';
+        const isDiv = block.type === 'divider';
+        el.innerHTML = `
+            <div class="pb-header">
+                <span class="pb-icon">${bt.icon}</span>
+                <input class="pb-label" value="${(block.customLabel || bt.defaultLabel).replace(/"/g, '&quot;')}" data-idx="${i}" ${isDiv ? 'disabled' : ''}>
+                <button class="pb-delete" data-idx="${i}">&times;</button>
+            </div>
+            ${!isDiv ? `<div class="pb-body">${bt.desc}</div>` : ''}
+            <div class="pb-resize"></div>
+        `;
+        setupBlockDrag(el, block, i);
+        setupBlockResize(el, block);
+        layer.appendChild(el);
+    });
+    layer.querySelectorAll('.pb-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            customBlocks.splice(parseInt(btn.dataset.idx), 1);
+            renderEditorBlocks();
         });
-        canvas.querySelectorAll('.block-delete').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                customBlocks.splice(parseInt(btn.dataset.idx), 1);
-                renderBlocks();
-            });
+    });
+    layer.querySelectorAll('.pb-label').forEach(inp => {
+        inp.addEventListener('input', () => {
+            const idx = parseInt(inp.dataset.idx);
+            customBlocks[idx].customLabel = inp.value;
         });
-        canvas.querySelectorAll('.block-label-input').forEach(inp => {
-            inp.addEventListener('input', () => {
-                customBlocks[parseInt(inp.dataset.idx)].customLabel = inp.value;
-            });
-            inp.addEventListener('mousedown', (e) => e.stopPropagation());
-        });
+        inp.addEventListener('mousedown', (e) => e.stopPropagation());
+    });
+}
+
+function setupBlockDrag(el, block, idx) {
+    const header = el.querySelector('.pb-header');
+    let startX, startY, origX, origY;
+    function onDown(e) {
+        if (e.target.closest('.pb-delete') || e.target.closest('.pb-label')) return;
+        if (editorTool !== 'select') return;
+        e.preventDefault();
+        const t = e.touches ? e.touches[0] : e;
+        startX = t.clientX; startY = t.clientY;
+        origX = block.x || 20; origY = block.y || 20 + idx * 80;
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+        el.classList.add('selected');
+    }
+    function onMove(e) {
+        e.preventDefault();
+        const t = e.touches ? e.touches[0] : e;
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        block.x = Math.max(0, origX + dx);
+        block.y = Math.max(0, origY + dy);
+        el.style.left = block.x + 'px';
+        el.style.top = block.y + 'px';
+    }
+    function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onUp);
+        el.classList.remove('selected');
+    }
+    header.addEventListener('mousedown', onDown);
+    header.addEventListener('touchstart', onDown, { passive: false });
+}
+
+function setupBlockResize(el, block) {
+    const handle = el.querySelector('.pb-resize');
+    let startX, startY, origW, origH;
+    function onDown(e) {
+        e.preventDefault(); e.stopPropagation();
+        const t = e.touches ? e.touches[0] : e;
+        startX = t.clientX; startY = t.clientY;
+        origW = block.w || 250; origH = block.h || 60;
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
+    }
+    function onMove(e) {
+        e.preventDefault();
+        const t = e.touches ? e.touches[0] : e;
+        block.w = Math.max(80, origW + t.clientX - startX);
+        block.h = Math.max(40, origH + t.clientY - startY);
+        el.style.width = block.w + 'px';
+        el.style.height = block.h + 'px';
+    }
+    function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onUp);
+    }
+    handle.addEventListener('mousedown', onDown);
+    handle.addEventListener('touchstart', onDown, { passive: false });
+}
+
+function setupPaperEditor() {
+    const dc = document.getElementById('editorDrawCanvas');
+    if (!dc) return;
+    const ctx = dc.getContext('2d');
+    let drawing = false;
+    let currentStroke = null;
+    let lineStart = null;
+    let snapshot = null;
+
+    function getPos(e) {
+        const rect = dc.getBoundingClientRect();
+        const sx = dc.width / rect.width;
+        const sy = dc.height / rect.height;
+        const t = e.touches ? e.touches[0] : e;
+        return { x: (t.clientX - rect.left) * sx, y: (t.clientY - rect.top) * sy };
     }
 
+    dc.addEventListener('mousedown', onDown);
+    dc.addEventListener('mousemove', onMove);
+    dc.addEventListener('mouseup', onUp);
+    dc.addEventListener('mouseleave', onUp);
+    dc.addEventListener('touchstart', onDown, { passive: false });
+    dc.addEventListener('touchmove', onMove, { passive: false });
+    dc.addEventListener('touchend', onUp);
+
+    function onDown(e) {
+        if (editorTool === 'select') return;
+        e.preventDefault();
+        const pos = getPos(e);
+        const color = document.getElementById('editorDrawColor').value;
+        const size = parseFloat(document.getElementById('editorDrawSize').value);
+        drawing = true;
+        if (editorTool === 'draw') {
+            currentStroke = { type: 'free', color, size, pts: [pos] };
+            ctx.strokeStyle = color; ctx.lineWidth = size;
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+        } else if (editorTool === 'eraser') {
+            currentStroke = { type: 'eraser', color: '', size, pts: [pos] };
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.strokeStyle = 'rgba(0,0,0,1)';
+            ctx.lineWidth = size * 6;
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+        } else if (editorTool === 'line') {
+            lineStart = pos;
+            snapshot = ctx.getImageData(0, 0, dc.width, dc.height);
+            currentStroke = { type: 'line', color, size, pts: [pos] };
+        }
+    }
+
+    function onMove(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        const pos = getPos(e);
+        if (editorTool === 'draw') {
+            currentStroke.pts.push(pos);
+            ctx.lineTo(pos.x, pos.y); ctx.stroke();
+        } else if (editorTool === 'eraser') {
+            currentStroke.pts.push(pos);
+            ctx.lineTo(pos.x, pos.y); ctx.stroke();
+        } else if (editorTool === 'line' && lineStart) {
+            ctx.putImageData(snapshot, 0, 0);
+            const color = document.getElementById('editorDrawColor').value;
+            const size = parseFloat(document.getElementById('editorDrawSize').value);
+            ctx.strokeStyle = color; ctx.lineWidth = size; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(lineStart.x, lineStart.y);
+            ctx.lineTo(pos.x, pos.y); ctx.stroke();
+        }
+    }
+
+    function onUp(e) {
+        if (!drawing) return;
+        drawing = false;
+        if (editorTool === 'eraser') ctx.restore();
+        if (editorTool === 'line' && lineStart) {
+            const pos = e.changedTouches ? { x: 0, y: 0 } : getPos(e);
+            if (e.changedTouches) {
+                const rect = dc.getBoundingClientRect();
+                const sx = dc.width / rect.width;
+                const sy = dc.height / rect.height;
+                const t = e.changedTouches[0];
+                pos.x = (t.clientX - rect.left) * sx;
+                pos.y = (t.clientY - rect.top) * sy;
+            }
+            currentStroke.pts.push(pos);
+        }
+        if (currentStroke && currentStroke.pts.length > 0) {
+            editorDrawHistory.push(currentStroke);
+        }
+        currentStroke = null; lineStart = null; snapshot = null;
+    }
+
+    // Tool buttons
+    const blockLayer = document.getElementById('editorBlockLayer');
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            editorTool = btn.dataset.tool;
+            dc.style.cursor = editorTool === 'select' ? 'default' :
+                              editorTool === 'eraser' ? 'cell' : 'crosshair';
+            // When drawing, blocks shouldn't intercept; when selecting, canvas shouldn't intercept
+            if (editorTool === 'select') {
+                dc.style.pointerEvents = 'none';
+                blockLayer.style.pointerEvents = 'none'; // blocks have pointer-events:all individually
+            } else {
+                dc.style.pointerEvents = 'auto';
+                blockLayer.style.pointerEvents = 'none';
+            }
+        });
+    });
+    // Default: select tool, canvas behind blocks
+    dc.style.pointerEvents = 'none';
+
+    // Page size
+    const pageSizeSelect = document.getElementById('editorPageSize');
+    const wInput = document.getElementById('editorW');
+    const hInput = document.getElementById('editorH');
+    const wxh = document.getElementById('editorWxH');
+    if (pageSizeSelect) pageSizeSelect.addEventListener('change', () => {
+        const v = pageSizeSelect.value;
+        if (v === 'custom') {
+            wInput.classList.remove('hidden'); hInput.classList.remove('hidden'); wxh.classList.remove('hidden');
+        } else {
+            wInput.classList.add('hidden'); hInput.classList.add('hidden'); wxh.classList.add('hidden');
+            const s = PAGE_SIZES[v];
+            editorPaperW = s.w; editorPaperH = s.h;
+            resizeEditorCanvas(); redrawEditorCanvas();
+        }
+    });
+    if (wInput) wInput.addEventListener('change', () => {
+        editorPaperW = Math.max(200, Math.min(2000, parseInt(wInput.value) || 816));
+        wInput.value = editorPaperW;
+        resizeEditorCanvas(); redrawEditorCanvas();
+    });
+    if (hInput) hInput.addEventListener('change', () => {
+        editorPaperH = Math.max(200, Math.min(3000, parseInt(hInput.value) || 1056));
+        hInput.value = editorPaperH;
+        resizeEditorCanvas(); redrawEditorCanvas();
+    });
+
+    // BG image
+    document.getElementById('editorBgImage').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            editorBgImageData = ev.target.result;
+            redrawEditorCanvas();
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    });
+    document.getElementById('editorClearBg').addEventListener('click', () => {
+        editorBgImageData = null;
+        redrawEditorCanvas();
+    });
+
+    // Undo / Clear drawing
+    document.getElementById('editorUndo').addEventListener('click', () => {
+        editorDrawHistory.pop();
+        redrawEditorCanvas();
+    });
+    document.getElementById('editorClearDraw').addEventListener('click', () => {
+        editorDrawHistory = [];
+        redrawEditorCanvas();
+    });
+
+    // Add blocks
     document.querySelectorAll('.block-add-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const type = btn.dataset.block;
             const bt = BLOCK_TYPES[type] || BLOCK_TYPES.free;
-            customBlocks.push({ type, customLabel: bt.defaultLabel });
-            renderBlocks();
+            const yOff = 20 + customBlocks.length * 80;
+            customBlocks.push({
+                type,
+                customLabel: bt.defaultLabel,
+                x: 30,
+                y: Math.min(yOff, editorPaperH - 80),
+                w: type === 'divider' ? editorPaperW - 60 : 300,
+                h: type === 'divider' ? 10 : 80
+            });
+            renderEditorBlocks();
         });
     });
 
+    // Open / Done
     const openBtn = document.getElementById('openEditorBtn');
     if (openBtn) openBtn.addEventListener('click', openEditor);
+    document.getElementById('editorDoneBtn').addEventListener('click', closeEditor);
 
-    const doneBtn = document.getElementById('editorDoneBtn');
-    if (doneBtn) doneBtn.addEventListener('click', closeEditor);
-
+    // Sidebar color/pattern bindings
     const bgInput = document.getElementById('editorBg');
-    if (bgInput) bgInput.addEventListener('input', () => { customPaper.bg = bgInput.value; });
-
+    if (bgInput) bgInput.addEventListener('input', () => { customPaper.bg = bgInput.value; redrawEditorCanvas(); });
     const lineColorInput = document.getElementById('editorLineColor');
-    if (lineColorInput) lineColorInput.addEventListener('input', () => { customPaper.lineColor = lineColorInput.value; });
-
+    if (lineColorInput) lineColorInput.addEventListener('input', () => { customPaper.lineColor = lineColorInput.value; redrawEditorCanvas(); });
     const inkInput = document.getElementById('editorInk');
     if (inkInput) inkInput.addEventListener('input', () => { customPaper.inkColor = inkInput.value; });
-
     const labelInput = document.getElementById('editorLabelColor');
     if (labelInput) labelInput.addEventListener('input', () => { customPaper.labelColor = labelInput.value; });
-
     const patternSelect = document.getElementById('editorPattern');
-    if (patternSelect) patternSelect.addEventListener('change', () => { customPaper.pattern = patternSelect.value; });
-
+    if (patternSelect) patternSelect.addEventListener('change', () => { customPaper.pattern = patternSelect.value; redrawEditorCanvas(); });
     const spacingInput = document.getElementById('editorSpacing');
     if (spacingInput) spacingInput.addEventListener('input', () => {
         customPaper.lineSpacing = parseInt(spacingInput.value);
+        redrawEditorCanvas();
     });
-
-    renderBlocks();
 }
 
 function setupBookmarklet() {
