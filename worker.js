@@ -2,24 +2,24 @@ const CEREBRAS_API_KEY = 'csk-wnhhkvm58e8f3yhppm6xjf8dkdmy2nvxxj8dn5yrc95wec8t';
 
 const PROMPTS = {
     cornell: `Create Cornell Notes from this content. Return ONLY valid JSON, no other text:
-{"topic":"topic title","mainIdeas":["idea1","idea2"],"notes":["note1","note2"],"summary":"summary"}
-Find the key questions or main concepts. Use them as main ideas with thorough answers as notes. DO NOT use dashes, hyphens, or bullet points. Write in complete sentences.`,
+{"topic":"topic title","mainIdeaStatements":["main idea for group1","",""],"mainIdeas":["question1","question2","question3"],"notes":["answer1","answer2","answer3"],"summary":"summary"}
+Group related questions under a main idea statement. The mainIdeaStatements array must be the same length as mainIdeas. Put a main idea string for the first question of each group, empty string "" for subsequent questions in that group. If the text contains "MAIN IDEA:" sections, use those exact statements. Otherwise generate a one-sentence main idea for each group. Write thorough answers in complete sentences. DO NOT use dashes, hyphens, or bullet points.`,
 
     vocab: `Extract vocabulary terms and definitions. Return ONLY valid JSON:
-{"topic":"Vocabulary","mainIdeas":["Term1","Term2"],"notes":["Definition of term1","Definition of term2"],"summary":"Key concepts summary"}
-Extract ALL key terms. Put the WORD in mainIdeas and DEFINITION in notes. Write definitions as complete sentences.`,
+{"topic":"Vocabulary","mainIdeaStatements":[""],"mainIdeas":["Term1","Term2"],"notes":["Definition of term1","Definition of term2"],"summary":"Key concepts summary"}
+Extract ALL key terms. Put the WORD in mainIdeas and DEFINITION in notes. mainIdeaStatements should be empty strings. Write definitions as complete sentences.`,
 
     timeline: `Create a timeline. Return ONLY valid JSON:
-{"topic":"Timeline","mainIdeas":["Date1","Date2"],"notes":["What happened","What happened"],"summary":"Overview of time period"}
-Extract ALL dates and events. Put DATE in mainIdeas, EVENT in notes. Order chronologically. Write in complete sentences.`,
+{"topic":"Timeline","mainIdeaStatements":[""],"mainIdeas":["Date1","Date2"],"notes":["What happened","What happened"],"summary":"Overview of time period"}
+Extract ALL dates and events. Put DATE in mainIdeas, EVENT in notes. mainIdeaStatements should be empty strings. Order chronologically. Write in complete sentences.`,
 
     character: `Create character notes. Return ONLY valid JSON:
-{"topic":"Characters","mainIdeas":["Name1","Name2"],"notes":["Who they are","Who they are"],"summary":"How characters relate"}
-Extract ALL characters. Put NAME in mainIdeas, DESCRIPTION in notes. Include role, traits, importance. Write in complete sentences.`,
+{"topic":"Characters","mainIdeaStatements":[""],"mainIdeas":["Name1","Name2"],"notes":["Who they are","Who they are"],"summary":"How characters relate"}
+Extract ALL characters. Put NAME in mainIdeas, DESCRIPTION in notes. mainIdeaStatements should be empty strings. Include role, traits, importance. Write in complete sentences.`,
 
     all: `Create comprehensive Cornell Notes covering everything important. Return ONLY valid JSON:
-{"topic":"topic title","mainIdeas":["concept1","concept2","concept3"],"notes":["explanation1","explanation2","explanation3"],"summary":"Complete summary"}
-Extract ALL important info: terms, dates, people, events, concepts. Each main idea is a short label, each note is a detailed explanation. Write in complete sentences.`
+{"topic":"topic title","mainIdeaStatements":["main idea for group1","","main idea for group2"],"mainIdeas":["concept1","concept2","concept3"],"notes":["explanation1","explanation2","explanation3"],"summary":"Complete summary"}
+Group related items under main idea statements. mainIdeaStatements array must be same length as mainIdeas. Put a main idea string for the first item of each group, empty string for rest. If text contains "MAIN IDEA:" use those. Otherwise generate them. Write in complete sentences.`
 };
 
 const CORS_HEADERS = {

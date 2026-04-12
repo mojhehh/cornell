@@ -209,28 +209,7 @@ function setupEventListeners() {
         });
     });
 
-    const cpFields = {
-        cpBg: 'bg', cpLineColor: 'lineColor', cpMarginColor: 'marginColor',
-        cpDivider: 'dividerColor', cpInk: 'inkColor', cpLabel: 'labelColor'
-    };
-    Object.entries(cpFields).forEach(([id, key]) => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('input', () => { customPaper[key] = el.value; });
-    });
-    const cpPattern = document.getElementById('cpPattern');
-    if (cpPattern) cpPattern.addEventListener('change', () => { customPaper.pattern = cpPattern.value; });
-    const cpTexture = document.getElementById('cpTexture');
-    if (cpTexture) cpTexture.addEventListener('change', () => { customPaper.texture = cpTexture.value; });
-    const cpLineSpacing = document.getElementById('cpLineSpacing');
-    if (cpLineSpacing) cpLineSpacing.addEventListener('input', () => { customPaper.lineSpacing = parseInt(cpLineSpacing.value); });
-    const cpGridSize = document.getElementById('cpGridSize');
-    if (cpGridSize) cpGridSize.addEventListener('input', () => { customPaper.gridSize = parseInt(cpGridSize.value); });
-    const cpDotSize = document.getElementById('cpDotSize');
-    if (cpDotSize) cpDotSize.addEventListener('input', () => { customPaper.dotSize = parseFloat(cpDotSize.value); });
-    const cpLineWidth = document.getElementById('cpLineWidth');
-    if (cpLineWidth) cpLineWidth.addEventListener('input', () => { customPaper.lineWidth = parseFloat(cpLineWidth.value); });
-    const cpMargin = document.getElementById('cpMargin');
-    if (cpMargin) cpMargin.addEventListener('change', () => { customPaper.margin = cpMargin.checked; });
+    setupPaperEditor();
 
     document.querySelectorAll('.note-type-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -534,6 +513,125 @@ async function callAI(content) {
     return data;
 }
 
+let paperEditorImage = null;
+let customBlocks = [];
+
+const BLOCK_TYPES = {
+    'main-ideas': { icon: '💡', label: 'Main Ideas', desc: 'AI places main idea statements here', defaultLabel: 'Main Ideas' },
+    'questions': { icon: '❓', label: 'Questions', desc: 'AI places key questions here', defaultLabel: 'Key Questions' },
+    'notes': { icon: '📝', label: 'Notes / Answers', desc: 'AI places detailed answers here', defaultLabel: 'Notes' },
+    'summary': { icon: '📋', label: 'Summary', desc: 'AI places the summary here', defaultLabel: 'Summary' },
+    'vocab': { icon: '📖', label: 'Vocabulary', desc: 'AI places key terms + definitions', defaultLabel: 'Vocabulary' },
+    'timeline': { icon: '📅', label: 'Timeline', desc: 'AI places dates and events', defaultLabel: 'Timeline' },
+    'free': { icon: '✏️', label: 'Free Text', desc: 'Custom label — you write the text', defaultLabel: '' },
+    'divider': { icon: '➖', label: 'Divider', desc: 'A horizontal divider line', defaultLabel: '' }
+};
+
+function setupPaperEditor() {
+    const canvas = document.getElementById('blockEditorCanvas');
+    if (!canvas) return;
+    let dragItem = null;
+    let dragOverItem = null;
+
+    function renderBlocks() {
+        canvas.innerHTML = '';
+        if (customBlocks.length === 0) {
+            canvas.innerHTML = '<div class="block-editor-empty">Click buttons above to add blocks to your layout</div>';
+            return;
+        }
+        customBlocks.forEach((block, i) => {
+            const bt = BLOCK_TYPES[block.type] || BLOCK_TYPES.free;
+            const el = document.createElement('div');
+            el.className = 'editor-block';
+            el.draggable = true;
+            el.dataset.index = i;
+            const isEditable = block.type === 'free';
+            el.innerHTML = `
+                <span class="block-icon">${bt.icon}</span>
+                <div class="block-info">
+                    <div class="block-type">${bt.label}</div>
+                    <div class="block-desc">${bt.desc}</div>
+                    ${block.type !== 'divider' ? `<input class="block-label-input" value="${(block.customLabel || bt.defaultLabel).replace(/"/g, '&quot;')}" placeholder="${isEditable ? 'Type your text here...' : 'Section label (optional)'}" data-idx="${i}">` : ''}
+                </div>
+                <button class="block-delete" data-idx="${i}" title="Remove">&times;</button>
+            `;
+            el.addEventListener('dragstart', (e) => {
+                dragItem = i;
+                el.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+            el.addEventListener('dragend', () => {
+                el.classList.remove('dragging');
+                canvas.querySelectorAll('.editor-block').forEach(b => b.classList.remove('drag-over'));
+                dragItem = null;
+                dragOverItem = null;
+            });
+            el.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (dragItem !== null && dragItem !== i) {
+                    canvas.querySelectorAll('.editor-block').forEach(b => b.classList.remove('drag-over'));
+                    el.classList.add('drag-over');
+                    dragOverItem = i;
+                }
+            });
+            el.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (dragItem !== null && dragOverItem !== null && dragItem !== dragOverItem) {
+                    const moved = customBlocks.splice(dragItem, 1)[0];
+                    customBlocks.splice(dragOverItem, 0, moved);
+                    renderBlocks();
+                }
+            });
+            canvas.appendChild(el);
+        });
+        canvas.querySelectorAll('.block-delete').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                customBlocks.splice(parseInt(btn.dataset.idx), 1);
+                renderBlocks();
+            });
+        });
+        canvas.querySelectorAll('.block-label-input').forEach(inp => {
+            inp.addEventListener('input', () => {
+                customBlocks[parseInt(inp.dataset.idx)].customLabel = inp.value;
+            });
+            inp.addEventListener('mousedown', (e) => e.stopPropagation());
+        });
+    }
+
+    document.querySelectorAll('.block-add-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const type = btn.dataset.block;
+            const bt = BLOCK_TYPES[type] || BLOCK_TYPES.free;
+            customBlocks.push({ type, customLabel: bt.defaultLabel });
+            renderBlocks();
+        });
+    });
+
+    const bgInput = document.getElementById('editorBg');
+    if (bgInput) bgInput.addEventListener('input', () => { customPaper.bg = bgInput.value; });
+
+    const lineColorInput = document.getElementById('editorLineColor');
+    if (lineColorInput) lineColorInput.addEventListener('input', () => { customPaper.lineColor = lineColorInput.value; });
+
+    const inkInput = document.getElementById('editorInk');
+    if (inkInput) inkInput.addEventListener('input', () => { customPaper.inkColor = inkInput.value; });
+
+    const labelInput = document.getElementById('editorLabelColor');
+    if (labelInput) labelInput.addEventListener('input', () => { customPaper.labelColor = labelInput.value; });
+
+    const patternSelect = document.getElementById('editorPattern');
+    if (patternSelect) patternSelect.addEventListener('change', () => { customPaper.pattern = patternSelect.value; });
+
+    const spacingInput = document.getElementById('editorSpacing');
+    if (spacingInput) spacingInput.addEventListener('input', () => {
+        customPaper.lineSpacing = parseInt(spacingInput.value);
+    });
+
+    renderBlocks();
+}
+
 function setupBookmarklet() {
     const code = `(function(){
 var sel=window.getSelection();
@@ -541,45 +639,35 @@ if(sel&&sel.toString().trim().length>30){
 var txt=sel.toString().trim();
 var w=txt.split(/\\s+/).length;
 navigator.clipboard.writeText(txt).then(function(){
-alert('Copied selection: '+w+' words!');
+alert('Copied '+w+' words!');
 }).catch(function(){prompt('Copy this:',txt)});
 return;
 }
-var all=[];
-function grab(doc){
-try{
-var t=doc.body.innerText||'';
-if(t.trim())all.push(t.trim());
-doc.querySelectorAll('iframe').forEach(function(f){
-try{grab(f.contentDocument)}catch(e){}
-});
-}catch(e){}
-}
-grab(document);
-function getText(el){
-if(!el)return '';
-if(el.shadowRoot)return el.shadowRoot.innerText||getText(el.shadowRoot);
-return el.innerText||el.textContent||'';
-}
-document.querySelectorAll('*').forEach(function(el){
-if(el.shadowRoot){var t=getText(el.shadowRoot);if(t.length>100)all.push(t)}
-});
+var txt='';
 var best='';
-document.querySelectorAll('[class*=read],[class*=content],[class*=chapter],[class*=lesson],[class*=textbook],[class*=article],[id*=read],[id*=content],article,main,[role=main]').forEach(function(el){
-var t=el.innerText||'';
+document.querySelectorAll('.ep-read,.content.ep-read,[class*=read],[class*=chapter],[class*=lesson],[class*=textbook],article,main,[role=main]').forEach(function(el){
+var t=(el.innerText||'').trim();
 if(t.length>best.length)best=t;
 });
-if(best.length>200)all.unshift(best);
-all.sort(function(a,b){return b.length-a.length});
-var seen=new Set();
-var txt='';
-for(var i=0;i<all.length;i++){
-var c=all[i].trim();
-if(c.length>20&&!seen.has(c)){seen.add(c);if(!txt||c.length>txt.length)txt=c}
+if(best.length<200){
+best=(document.body.innerText||'').trim();
 }
-txt=(txt||'').replace(/\\n{3,}/g,'\\n\\n').trim();
-if(!txt||txt.length<10){
-alert('No text grabbed. Try selecting the text first, then click the bookmarklet.');
+document.querySelectorAll('iframe').forEach(function(f){
+try{
+var t=(f.contentDocument.body.innerText||'').trim();
+if(t.length>best.length)best=t;
+}catch(e){}
+});
+txt=best.replace(/\\n{3,}/g,'\\n\\n').trim();
+if(!txt||txt.length<50){
+var iframes=document.querySelectorAll('iframe[src]');
+var crossSrcs=[];
+iframes.forEach(function(f){try{f.contentDocument;}catch(e){if(f.src&&f.src.startsWith('http'))crossSrcs.push(f.src)}});
+if(crossSrcs.length>0){
+alert('Content is inside a protected frame.\\n\\nTry this: click inside the reading area, press Ctrl+A to select all text, then click this bookmarklet again.');
+}else{
+alert('No text found. Select the text first, then click the bookmarklet.');
+}
 return;
 }
 var w=txt.split(/\\s+/).length;
@@ -836,21 +924,27 @@ function generateFallback(content) {
     const topic = content.split('\n')[0].slice(0, 60).trim() || 'Notes';
     const ideas = [];
     const notes = [];
+    const mainIdeaStatements = [];
+    const miMatch = content.match(/main\s*idea[:\s]+([^\n.]+)/i);
+    const mainIdeaText = miMatch ? miMatch[1].trim() : '';
     for (let i = 0; i < Math.min(5, Math.max(3, sentences.length)); i++) {
         const s = sentences[i] ? sentences[i].trim() : '';
         if (s) {
             ideas.push(s.split(' ').slice(0, 5).join(' '));
             notes.push(s);
+            mainIdeaStatements.push(i === 0 ? (mainIdeaText || topic) : '');
         }
     }
     if (ideas.length === 0) {
         ideas.push('Key concept');
         notes.push(content.slice(0, 200));
+        mainIdeaStatements.push(mainIdeaText || topic);
     }
     return {
         topic: topic,
         mainIdeas: ideas,
         notes: notes,
+        mainIdeaStatements: mainIdeaStatements,
         summary: sentences.slice(0, 2).join('. ').slice(0, 200) || content.slice(0, 200)
     };
 }
@@ -882,29 +976,129 @@ function displayNotes(notes) {
     document.getElementById('rightColLabel').textContent = 'Notes';
     document.getElementById('summaryLabel').textContent = 'Summary';
     
-    writeText('topicArea', notes.topic || 'Notes');
-    writeText('nameArea', '');
-    writeText('dateArea', new Date().toLocaleDateString());
     const mainIdeasDiv = document.getElementById('mainIdeasContent');
     const notesDiv = document.getElementById('notesContent');
     mainIdeasDiv.innerHTML = '';
     notesDiv.innerHTML = '';
-    const ideas = Array.isArray(notes.mainIdeas) ? notes.mainIdeas : [];
-    const noteTexts = Array.isArray(notes.notes) ? notes.notes : [];
-    ideas.forEach((idea, i) => {
-        const ideaDiv = document.createElement('div');
-        ideaDiv.className = 'main-idea-item';
-        mainIdeasDiv.appendChild(ideaDiv);
-        writeTextToElement(ideaDiv, idea || '', 280);
-        const noteDiv = document.createElement('div');
-        noteDiv.className = 'note-item';
-        notesDiv.appendChild(noteDiv);
-        writeTextToElement(noteDiv, noteTexts[i] || '', 750);
+
+    requestAnimationFrame(() => {
+        writeText('topicArea', notes.topic || 'Notes');
+        writeText('nameArea', '');
+        writeText('dateArea', new Date().toLocaleDateString());
+
+        const ideas = Array.isArray(notes.mainIdeas) ? notes.mainIdeas : [];
+        const noteTexts = Array.isArray(notes.notes) ? notes.notes : [];
+        const mainIdeaStatements = Array.isArray(notes.mainIdeaStatements) ? notes.mainIdeaStatements : [];
+
+        const cornellLayout = document.querySelector('.cornell-layout');
+        const summarySection = document.querySelector('.summary-section');
+        let blockContainer = document.getElementById('customBlockContent');
+
+        if (selectedPaper === 'custom' && customBlocks.length > 0) {
+            // Custom block layout: stacked sections
+            cornellLayout.style.display = 'none';
+            summarySection.style.display = 'none';
+            if (!blockContainer) {
+                blockContainer = document.createElement('div');
+                blockContainer.id = 'customBlockContent';
+                cornellLayout.parentElement.insertBefore(blockContainer, cornellLayout);
+            }
+            blockContainer.innerHTML = '';
+            blockContainer.style.display = 'block';
+
+            customBlocks.forEach(block => {
+                const bt = BLOCK_TYPES[block.type] || BLOCK_TYPES.free;
+                if (block.type === 'divider') {
+                    const hr = document.createElement('hr');
+                    hr.style.cssText = 'border:none;border-top:1px solid #ccc;margin:18px 0';
+                    blockContainer.appendChild(hr);
+                    return;
+                }
+                const section = document.createElement('div');
+                section.style.marginBottom = '24px';
+                const label = document.createElement('div');
+                label.className = 'col-label';
+                label.style.fontFamily = preset.font;
+                label.textContent = block.customLabel || bt.defaultLabel;
+                section.appendChild(label);
+                const content = document.createElement('div');
+                section.appendChild(content);
+                blockContainer.appendChild(section);
+
+                if (block.type === 'main-ideas') {
+                    mainIdeaStatements.forEach(mi => {
+                        if (mi) {
+                            const d = document.createElement('div');
+                            d.className = 'main-idea-item';
+                            content.appendChild(d);
+                            writeTextToElement(d, mi);
+                        }
+                    });
+                } else if (block.type === 'questions') {
+                    ideas.forEach(idea => {
+                        const d = document.createElement('div');
+                        d.className = 'main-idea-item';
+                        content.appendChild(d);
+                        writeTextToElement(d, idea);
+                    });
+                } else if (block.type === 'notes') {
+                    noteTexts.forEach(note => {
+                        const d = document.createElement('div');
+                        d.className = 'note-item';
+                        content.appendChild(d);
+                        writeTextToElement(d, note);
+                    });
+                } else if (block.type === 'summary') {
+                    writeTextToElement(content, notes.summary || '');
+                } else if (block.type === 'vocab' || block.type === 'timeline') {
+                    const sep = block.type === 'timeline' ? ' \u2014 ' : ': ';
+                    ideas.forEach((term, i) => {
+                        const d = document.createElement('div');
+                        d.className = 'note-item';
+                        content.appendChild(d);
+                        writeTextToElement(d, term + sep + (noteTexts[i] || ''));
+                    });
+                } else if (block.type === 'free') {
+                    if (block.customLabel) {
+                        writeTextToElement(content, block.customLabel);
+                    }
+                }
+            });
+        } else {
+            // Default cornell 2-column layout
+            cornellLayout.style.display = '';
+            summarySection.style.display = '';
+            if (blockContainer) blockContainer.style.display = 'none';
+
+            let currentMainIdea = '';
+            ideas.forEach((idea, i) => {
+                const mi = mainIdeaStatements[i] || '';
+                if (mi && mi !== currentMainIdea) {
+                    currentMainIdea = mi;
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'main-idea-label';
+                    mainIdeasDiv.appendChild(labelDiv);
+                    writeTextToElement(labelDiv, 'Main Idea: ' + mi);
+                    const spacerDiv = document.createElement('div');
+                    spacerDiv.className = 'main-idea-label';
+                    notesDiv.appendChild(spacerDiv);
+                    writeTextToElement(spacerDiv, '');
+                }
+                const ideaDiv = document.createElement('div');
+                ideaDiv.className = 'main-idea-item';
+                mainIdeasDiv.appendChild(ideaDiv);
+                writeTextToElement(ideaDiv, idea || '');
+                const noteDiv = document.createElement('div');
+                noteDiv.className = 'note-item';
+                notesDiv.appendChild(noteDiv);
+                writeTextToElement(noteDiv, noteTexts[i] || '');
+            });
+            const summaryDiv = document.getElementById('summaryContent');
+            summaryDiv.innerHTML = '';
+            writeTextToElement(summaryDiv, notes.summary);
+        }
+        requestAnimationFrame(() => drawPaper());
     });
-    const summaryDiv = document.getElementById('summaryContent');
-    summaryDiv.innerHTML = '';
-    writeTextToElement(summaryDiv, notes.summary, 1050);
-    requestAnimationFrame(() => drawPaper());
 }
 
 function isColorDark(hex) {
@@ -1150,12 +1344,21 @@ function drawPaper() {
 
 function writeText(elementId, text) {
     const element = document.getElementById(elementId);
-    writeTextToElement(element, text, element.offsetWidth || 400);
+    writeTextToElement(element, text);
 }
 
-function writeTextToElement(element, text, maxWidth) {
+function writeTextToElement(element, text) {
     element.innerHTML = '';
     if (!text) return;
+    // Walk up DOM to find a parent with a real width
+    let maxWidth = 0;
+    let node = element;
+    while (node && node !== document.body) {
+        const w = node.getBoundingClientRect().width;
+        if (w > 50) { maxWidth = Math.floor(w); break; }
+        node = node.parentElement;
+    }
+    if (!maxWidth || maxWidth < 50) maxWidth = 300;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const preset = HANDWRITING_PRESETS[selectedStyle] || HANDWRITING_PRESETS.neat;
@@ -1167,11 +1370,12 @@ function writeTextToElement(element, text, maxWidth) {
     const words = text.split(' ');
     const lines = [];
     let line = '';
+    const pad = 20;
     
     words.forEach(word => {
         const testLine = line + (line ? ' ' : '') + word;
         const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth - 20 && line) {
+        if (metrics.width > maxWidth - pad && line) {
             lines.push(line);
             line = word;
         } else {
