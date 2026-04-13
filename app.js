@@ -1713,15 +1713,26 @@ function writeTextToElement(element, text) {
     const fontSize = Math.max(16, Math.round(lineHeight * 0.7));
     ctx.font = `${fontSize}px ${preset.font}`;
     
+    // Measure line width the same way we render: per-char width + 2px spacing
+    function renderedWidth(str) {
+        let w = 0;
+        for (const ch of str) {
+            if (ch === ' ') { w += fontSize * 0.5; }
+            else { w += ctx.measureText(ch).width + 2; }
+        }
+        return w;
+    }
+    
     const words = text.split(' ');
     const lines = [];
     let line = '';
-    const pad = 20;
+    const padLeft = 8;
+    const padRight = 12;
+    const wrapWidth = maxWidth - padLeft - padRight;
     
     words.forEach(word => {
         const testLine = line + (line ? ' ' : '') + word;
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth - pad && line) {
+        if (renderedWidth(testLine) > wrapWidth && line) {
             lines.push(line);
             line = word;
         } else {
@@ -1731,11 +1742,11 @@ function writeTextToElement(element, text) {
     if (line) lines.push(line);
     
     canvas.width = maxWidth;
-    canvas.height = lines.length * lineHeight + 20;
+    canvas.height = lines.length * lineHeight + 24;
     
     let y = lineHeight;
     lines.forEach(lineText => {
-        let x = 8;
+        let x = padLeft;
         for (const char of lineText) {
             if (char === ' ') {
                 x += fontSize * 0.5;
