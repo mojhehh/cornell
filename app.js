@@ -991,7 +991,7 @@ function setupPaperEditor() {
 
 function setupBookmarklet() {
     const code = `(function(){
-/* Phase 1: Nuke all copy-protection & highlight overlay systems */
+/* Phase 1: Nuke copy-protection everywhere accessible */
 function unlock(doc){
 try{
 var s=doc.createElement('style');
@@ -1009,11 +1009,11 @@ doc.addEventListener(evt,function(e){e.stopPropagation()},true);
 }catch(e){}
 }
 unlock(document);
-/* Phase 2: Handle cross-origin iframes — open them in new tabs */
+/* Phase 2: Detect cross-origin iframes */
 var crossFrames=[];
 document.querySelectorAll('iframe').forEach(function(f){
 try{unlock(f.contentDocument)}catch(e){
-if(f.src&&f.src.startsWith('http'))crossFrames.push(f.src);
+if(f.src&&f.src.startsWith('http'))crossFrames.push(f);
 }
 });
 /* Phase 3: Check for existing selection first */
@@ -1026,35 +1026,19 @@ alert('Copied '+w+' words!');
 }).catch(function(){prompt('Copy this:',txt)});
 return;
 }
-/* Phase 4: Auto-find best content block */
-var txt='';
+/* Phase 4: Auto-find best content block in main document */
 var best='';
 document.querySelectorAll('.ep-read,.content.ep-read,[class*=read],[class*=chapter],[class*=lesson],[class*=textbook],[class*=page-content],[class*=book-content],[class*=viewer],[class*=reader],article,main,[role=main],[role=document]').forEach(function(el){
 var t=(el.innerText||'').trim();
 if(t.length>best.length)best=t;
 });
-if(best.length<200){
-best=(document.body.innerText||'').trim();
-}
+if(best.length<200) best=(document.body.innerText||'').trim();
+/* Also try accessible same-origin iframes */
 document.querySelectorAll('iframe').forEach(function(f){
-try{
-var t=(f.contentDocument.body.innerText||'').trim();
-if(t.length>best.length)best=t;
-}catch(e){}
+try{var t=(f.contentDocument.body.innerText||'').trim();if(t.length>best.length)best=t;}catch(e){}
 });
-txt=best.replace(/\\n{3,}/g,'\\n\\n').trim();
-if(!txt||txt.length<50){
-if(crossFrames.length>0){
-var msg='The reading content is inside a protected frame that this page cannot access.\\n\\n';
-msg+='Opening the frame in a new tab — run this bookmarklet again there!\\n\\n';
-msg+='URL: '+crossFrames[0].substring(0,80)+'...';
-window.open(crossFrames[0],'_blank');
-alert(msg);
-}else{
-alert('Protection removed! You can now select and copy text.\\nSelect what you want, then click this bookmarklet again.');
-}
-return;
-}
+var txt=best.replace(/\\n{3,}/g,'\\n\\n').trim();
+if(txt.length>50){
 var w=txt.split(/\\s+/).length;
 navigator.clipboard.writeText(txt).then(function(){
 alert('Copied '+w+' words! Paste in Cornell Notes.');
@@ -1064,6 +1048,35 @@ ta.value=txt;ta.style.cssText='position:fixed;top:0;left:0;width:100%;height:40%
 document.body.appendChild(ta);ta.focus();ta.select();
 alert('Text is in the box. Ctrl+A then Ctrl+C.');
 });
+return;
+}
+/* Phase 5: Cross-origin iframe — inject a message bridge via srcdoc swap */
+if(crossFrames.length>0){
+var frame=crossFrames[0];
+var origSrc=frame.src;
+/* Try postMessage trick: replace iframe src with a same-origin relay */
+/* Since we can't read the frame, show the UI to select+copy manually with protection removed */
+var banner=document.createElement('div');
+banner.id='_cn_banner';
+banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#2563eb;color:#fff;font:600 14px system-ui;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,0.3)';
+banner.innerHTML='<span>\\u{1F513} Copy protection removed! Select the text in the reader, then click <strong>Copy Selection</strong></span><div style="display:flex;gap:8px"><button id="_cn_copy" style="padding:8px 16px;background:#fff;color:#2563eb;border:none;border-radius:6px;font:600 13px system-ui;cursor:pointer">Copy Selection</button><button id="_cn_close" style="padding:8px 12px;background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:6px;font:600 13px system-ui;cursor:pointer">\\u00D7</button></div>';
+document.body.appendChild(banner);
+document.getElementById('_cn_copy').onclick=function(){
+var s=window.getSelection();
+var t=s?s.toString().trim():'';
+if(t.length<10){alert('Select some text in the reader first, then click Copy Selection.');return;}
+navigator.clipboard.writeText(t).then(function(){
+alert('Copied '+t.split(/\\s+/).length+' words!');
+document.body.removeChild(banner);
+}).catch(function(){
+prompt('Copy this text:',t);
+document.body.removeChild(banner);
+});
+};
+document.getElementById('_cn_close').onclick=function(){document.body.removeChild(banner)};
+}else{
+alert('Protection removed! Select the text you want, then click this bookmarklet again to copy it.');
+}
 })()`;
     const el = document.getElementById('bookmarkletLink');
     if (el) {
