@@ -1257,6 +1257,13 @@ body:has(.hero-fullscreen.active) .parallax-bg{
     letter-spacing:0.02em;
     color:var(--ink-muted);
     margin-bottom:16px;
+    overflow-wrap:break-word;
+    word-break:break-word;
+}
+
+#customBlockContent{
+    overflow-wrap:break-word;
+    word-break:break-word;
 }
 
 .main-idea-item,.note-item{margin-bottom:20px}
@@ -1414,7 +1421,7 @@ body:has(.hero-fullscreen.active) .parallax-bg{
 
 @media print{
     body{background:white}
-    .parallax-bg,.top-nav,.output-toolbar,.card-actions{display:none!important}
+    .parallax-bg,.top-nav,.output-toolbar,.card-actions,.editor-overlay{display:none!important}
     .card{box-shadow:none;padding:0;border-radius:0}
     .cornell-paper{box-shadow:none;max-width:none;width:100%}
     #paperCanvas,.notes-overlay canvas{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
@@ -1429,4 +1436,5 @@ body:has(.hero-fullscreen.active) .parallax-bg{
     .cornell-layout{flex-direction:column}
     .col-main-ideas,.col-notes{width:100%;padding:0;border:none}
     .col-main-ideas{margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+    .notes-overlay{padding:24px 16px}
 }

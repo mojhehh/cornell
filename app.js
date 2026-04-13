@@ -320,6 +320,7 @@ function generatePresetLetters(style) {
 function backToHero() {
     trainingSection.classList.remove('active');
     heroSection.classList.add('active');
+    hideStepIndicators();
 }
 
 function backToStyle() {
@@ -460,10 +461,21 @@ function updateProgress() {
     if (trained >= 10) continueBtn.disabled = false;
 }
 
+function showStepIndicators() {
+    const si = document.querySelector('.step-indicators');
+    if (si) si.classList.remove('hidden');
+}
+
+function hideStepIndicators() {
+    const si = document.querySelector('.step-indicators');
+    if (si) si.classList.add('hidden');
+}
+
 function goToTraining() {
     heroSection.classList.remove('active');
     inputSection.classList.remove('active');
     trainingSection.classList.add('active');
+    showStepIndicators();
     updateStepIndicators(1);
 }
 
@@ -471,6 +483,7 @@ function goToInput() {
     trainingSection.classList.remove('active');
     heroSection.classList.remove('active');
     inputSection.classList.add('active');
+    showStepIndicators();
     updateStepIndicators(2);
 }
 
@@ -816,10 +829,16 @@ function setupPaperEditor() {
         e.preventDefault();
         const pos = getPos(e);
         if (editorTool === 'draw') {
+            const prev = currentStroke.pts[currentStroke.pts.length - 1];
             currentStroke.pts.push(pos);
+            ctx.beginPath();
+            ctx.moveTo(prev.x, prev.y);
             ctx.lineTo(pos.x, pos.y); ctx.stroke();
         } else if (editorTool === 'eraser') {
+            const prev = currentStroke.pts[currentStroke.pts.length - 1];
             currentStroke.pts.push(pos);
+            ctx.beginPath();
+            ctx.moveTo(prev.x, prev.y);
             ctx.lineTo(pos.x, pos.y); ctx.stroke();
         } else if (editorTool === 'line' && lineStart) {
             ctx.putImageData(snapshot, 0, 0);
@@ -834,7 +853,7 @@ function setupPaperEditor() {
     function onUp(e) {
         if (!drawing) return;
         drawing = false;
-        if (editorTool === 'eraser') ctx.restore();
+        if (currentStroke && currentStroke.type === 'eraser') ctx.restore();
         if (editorTool === 'line' && lineStart) {
             const pos = e.changedTouches ? { x: 0, y: 0 } : getPos(e);
             if (e.changedTouches) {
@@ -1290,6 +1309,7 @@ function generateFallback(content) {
 function displayNotes(notes) {
     inputSection.classList.remove('active');
     notesSection.classList.add('active');
+    showStepIndicators();
     updateStepIndicators(3);
     
     const overlay = document.getElementById('notesOverlay');
@@ -1782,6 +1802,7 @@ function writeTextToElement(element, text) {
 function restart() {
     notesSection.classList.remove('active');
     heroSection.classList.add('active');
+    hideStepIndicators();
     document.getElementById('contentInput').value = '';
     updateStepIndicators(1);
     Object.keys(trainedLetters).forEach(k => delete trainedLetters[k]);
