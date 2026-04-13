@@ -995,21 +995,28 @@ function setupBookmarklet() {
 function unlock(doc){
 try{
 var s=doc.createElement('style');
-s.textContent='*{-webkit-user-select:text!important;-moz-user-select:text!important;-ms-user-select:text!important;user-select:text!important;-webkit-touch-callout:default!important;pointer-events:auto!important}[class*=highlight],[class*=Highlight],[data-highlight-color],[class*=overlay]:not(video):not(audio){pointer-events:none!important}';
+s.textContent='*{-webkit-user-select:text!important;-moz-user-select:text!important;-ms-user-select:text!important;user-select:text!important;-webkit-touch-callout:default!important}[class*=highlight],[class*=Highlight],[data-highlight-color],[data-highlight],[class*=annotation],[class*=markup],[class*=overlay]:not(video):not(audio):not([class*=content]):not([class*=reader]){pointer-events:none!important;opacity:0!important}';
 doc.head.appendChild(s);
+doc.querySelectorAll('[data-highlight-color],[class*=highlight-],[class*=annotation]').forEach(function(el){el.style.pointerEvents='none';el.style.opacity='0'});
 doc.querySelectorAll('*').forEach(function(el){
 el.style.userSelect='';el.style.webkitUserSelect='';
-el.oncopy=null;el.oncut=null;el.onpaste=null;el.oncontextmenu=null;el.onselectstart=null;el.ondragstart=null;
+el.oncopy=null;el.oncut=null;el.onpaste=null;el.oncontextmenu=null;el.onselectstart=null;el.ondragstart=null;el.onmousedown=null;
 el.removeAttribute('oncopy');el.removeAttribute('oncut');el.removeAttribute('onpaste');el.removeAttribute('oncontextmenu');el.removeAttribute('onselectstart');el.removeAttribute('ondragstart');el.removeAttribute('unselectable');
 });
-['copy','cut','selectstart','contextmenu','mousedown','mouseup','keydown'].forEach(function(evt){
+['copy','cut','selectstart','contextmenu','mousedown','mouseup','keydown','keyup','beforecopy'].forEach(function(evt){
 doc.addEventListener(evt,function(e){e.stopPropagation()},true);
 });
 }catch(e){}
 }
 unlock(document);
-document.querySelectorAll('iframe').forEach(function(f){try{unlock(f.contentDocument)}catch(e){}});
-/* Phase 2: Check for existing selection first */
+/* Phase 2: Handle cross-origin iframes — open them in new tabs */
+var crossFrames=[];
+document.querySelectorAll('iframe').forEach(function(f){
+try{unlock(f.contentDocument)}catch(e){
+if(f.src&&f.src.startsWith('http'))crossFrames.push(f.src);
+}
+});
+/* Phase 3: Check for existing selection first */
 var sel=window.getSelection();
 if(sel&&sel.toString().trim().length>30){
 var txt=sel.toString().trim();
@@ -1019,7 +1026,7 @@ alert('Copied '+w+' words!');
 }).catch(function(){prompt('Copy this:',txt)});
 return;
 }
-/* Phase 3: Auto-find best content block */
+/* Phase 4: Auto-find best content block */
 var txt='';
 var best='';
 document.querySelectorAll('.ep-read,.content.ep-read,[class*=read],[class*=chapter],[class*=lesson],[class*=textbook],[class*=page-content],[class*=book-content],[class*=viewer],[class*=reader],article,main,[role=main],[role=document]').forEach(function(el){
@@ -1037,7 +1044,15 @@ if(t.length>best.length)best=t;
 });
 txt=best.replace(/\\n{3,}/g,'\\n\\n').trim();
 if(!txt||txt.length<50){
-alert('Protection removed! You can now select and copy text normally.\\nSelect the text you want, then click this bookmarklet again.');
+if(crossFrames.length>0){
+var msg='The reading content is inside a protected frame that this page cannot access.\\n\\n';
+msg+='Opening the frame in a new tab — run this bookmarklet again there!\\n\\n';
+msg+='URL: '+crossFrames[0].substring(0,80)+'...';
+window.open(crossFrames[0],'_blank');
+alert(msg);
+}else{
+alert('Protection removed! You can now select and copy text.\\nSelect what you want, then click this bookmarklet again.');
+}
 return;
 }
 var w=txt.split(/\\s+/).length;
