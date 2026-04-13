@@ -991,6 +991,25 @@ function setupPaperEditor() {
 
 function setupBookmarklet() {
     const code = `(function(){
+/* Phase 1: Nuke all copy-protection & highlight overlay systems */
+function unlock(doc){
+try{
+var s=doc.createElement('style');
+s.textContent='*{-webkit-user-select:text!important;-moz-user-select:text!important;-ms-user-select:text!important;user-select:text!important;-webkit-touch-callout:default!important;pointer-events:auto!important}[class*=highlight],[class*=Highlight],[data-highlight-color],[class*=overlay]:not(video):not(audio){pointer-events:none!important}';
+doc.head.appendChild(s);
+doc.querySelectorAll('*').forEach(function(el){
+el.style.userSelect='';el.style.webkitUserSelect='';
+el.oncopy=null;el.oncut=null;el.onpaste=null;el.oncontextmenu=null;el.onselectstart=null;el.ondragstart=null;
+el.removeAttribute('oncopy');el.removeAttribute('oncut');el.removeAttribute('onpaste');el.removeAttribute('oncontextmenu');el.removeAttribute('onselectstart');el.removeAttribute('ondragstart');el.removeAttribute('unselectable');
+});
+['copy','cut','selectstart','contextmenu','mousedown','mouseup','keydown'].forEach(function(evt){
+doc.addEventListener(evt,function(e){e.stopPropagation()},true);
+});
+}catch(e){}
+}
+unlock(document);
+document.querySelectorAll('iframe').forEach(function(f){try{unlock(f.contentDocument)}catch(e){}});
+/* Phase 2: Check for existing selection first */
 var sel=window.getSelection();
 if(sel&&sel.toString().trim().length>30){
 var txt=sel.toString().trim();
@@ -1000,9 +1019,10 @@ alert('Copied '+w+' words!');
 }).catch(function(){prompt('Copy this:',txt)});
 return;
 }
+/* Phase 3: Auto-find best content block */
 var txt='';
 var best='';
-document.querySelectorAll('.ep-read,.content.ep-read,[class*=read],[class*=chapter],[class*=lesson],[class*=textbook],article,main,[role=main]').forEach(function(el){
+document.querySelectorAll('.ep-read,.content.ep-read,[class*=read],[class*=chapter],[class*=lesson],[class*=textbook],[class*=page-content],[class*=book-content],[class*=viewer],[class*=reader],article,main,[role=main],[role=document]').forEach(function(el){
 var t=(el.innerText||'').trim();
 if(t.length>best.length)best=t;
 });
@@ -1017,14 +1037,7 @@ if(t.length>best.length)best=t;
 });
 txt=best.replace(/\\n{3,}/g,'\\n\\n').trim();
 if(!txt||txt.length<50){
-var iframes=document.querySelectorAll('iframe[src]');
-var crossSrcs=[];
-iframes.forEach(function(f){try{f.contentDocument;}catch(e){if(f.src&&f.src.startsWith('http'))crossSrcs.push(f.src)}});
-if(crossSrcs.length>0){
-alert('Content is inside a protected frame.\\n\\nTry this: click inside the reading area, press Ctrl+A to select all text, then click this bookmarklet again.');
-}else{
-alert('No text found. Select the text first, then click the bookmarklet.');
-}
+alert('Protection removed! You can now select and copy text normally.\\nSelect the text you want, then click this bookmarklet again.');
 return;
 }
 var w=txt.split(/\\s+/).length;
